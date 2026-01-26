@@ -221,6 +221,18 @@ export default function ProfileScreen() {
                 1.0.0
               </ThemedText>
             </View>
+            <View style={styles.creditsDivider} />
+            <View style={styles.creditsSection}>
+              <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center" }}>
+                Designed by Mateusz Giera
+              </ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.xs }}>
+                Developed by Codeinside
+              </ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
+                All rights reserved | MIT License
+              </ThemedText>
+            </View>
           </View>
         </Animated.View>
 
@@ -291,6 +303,14 @@ const styles = StyleSheet.create({
   aboutRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+  },
+  creditsDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    marginVertical: Spacing.lg,
+  },
+  creditsSection: {
     alignItems: "center",
   },
   dangerButton: {
