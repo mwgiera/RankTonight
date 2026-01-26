@@ -1,25 +1,25 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import HomeScreen from "@/screens/HomeScreen";
+import NowScreen from "@/screens/NowScreen";
 import { HeaderTitle } from "@/components/HeaderTitle";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
-export type HomeStackParamList = {
-  Home: undefined;
+export type NowStackParamList = {
+  Now: undefined;
 };
 
-const Stack = createNativeStackNavigator<HomeStackParamList>();
+const Stack = createNativeStackNavigator<NowStackParamList>();
 
-export default function HomeStackNavigator() {
+export default function NowStackNavigator() {
   const screenOptions = useScreenOptions();
 
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
-        name="Home"
-        component={HomeScreen}
+        name="Now"
+        component={NowScreen}
         options={{
-          headerTitle: () => <HeaderTitle title="My App" />,
+          headerTitle: () => <HeaderTitle title="DriveRadar" />,
         }}
       />
     </Stack.Navigator>

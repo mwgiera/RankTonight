@@ -3,12 +3,17 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet } from "react-native";
-import HomeStackNavigator from "@/navigation/HomeStackNavigator";
+import NowStackNavigator from "@/navigation/NowStackNavigator";
+import ZonesStackNavigator from "@/navigation/ZonesStackNavigator";
+import LogStackNavigator from "@/navigation/LogStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
+import { Colors } from "@/constants/theme";
 
 export type MainTabParamList = {
-  HomeTab: undefined;
+  NowTab: undefined;
+  ZonesTab: undefined;
+  LogTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -19,9 +24,9 @@ export default function MainTabNavigator() {
 
   return (
     <Tab.Navigator
-      initialRouteName="HomeTab"
+      initialRouteName="NowTab"
       screenOptions={{
-        tabBarActiveTintColor: theme.tabIconSelected,
+        tabBarActiveTintColor: Colors.dark.primary,
         tabBarInactiveTintColor: theme.tabIconDefault,
         tabBarStyle: {
           position: "absolute",
@@ -36,7 +41,7 @@ export default function MainTabNavigator() {
           Platform.OS === "ios" ? (
             <BlurView
               intensity={100}
-              tint={isDark ? "dark" : "light"}
+              tint="dark"
               style={StyleSheet.absoluteFill}
             />
           ) : null,
@@ -44,12 +49,32 @@ export default function MainTabNavigator() {
       }}
     >
       <Tab.Screen
-        name="HomeTab"
-        component={HomeStackNavigator}
+        name="NowTab"
+        component={NowStackNavigator}
         options={{
-          title: "Home",
+          title: "Now",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="home" size={size} color={color} />
+            <Feather name="zap" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="ZonesTab"
+        component={ZonesStackNavigator}
+        options={{
+          title: "Zones",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="map" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="LogTab"
+        component={LogStackNavigator}
+        options={{
+          title: "Log",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="edit-3" size={size} color={color} />
           ),
         }}
       />
