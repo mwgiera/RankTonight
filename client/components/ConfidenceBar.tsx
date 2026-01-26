@@ -11,6 +11,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing, Colors } from "@/constants/theme";
 import type { ConfidenceLevel } from "@/lib/ranking-model";
+import { useLanguage } from "@/lib/language-context";
 
 interface ConfidenceBarProps {
   value: number;
@@ -19,6 +20,7 @@ interface ConfidenceBarProps {
 
 export function ConfidenceBar({ value, level }: ConfidenceBarProps) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const progress = useSharedValue(0);
 
   useEffect(() => {
@@ -44,17 +46,28 @@ export function ConfidenceBar({ value, level }: ConfidenceBarProps) {
     backgroundColor: getColor(),
   }));
 
+  const getTranslatedLevel = () => {
+    switch (level) {
+      case "Strong":
+        return t.now.strong;
+      case "Medium":
+        return t.now.medium;
+      case "Weak":
+        return t.now.weak;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.labelRow}>
         <ThemedText type="small" style={{ color: theme.textSecondary }}>
-          Confidence
+          {t.now.confidence}
         </ThemedText>
         <ThemedText
           type="small"
           style={[styles.levelLabel, { color: getColor() }]}
         >
-          {level}
+          {getTranslatedLevel()}
         </ThemedText>
       </View>
       <View style={[styles.track, { backgroundColor: theme.backgroundTertiary }]}>

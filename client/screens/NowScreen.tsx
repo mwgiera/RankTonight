@@ -146,7 +146,7 @@ export default function NowScreen() {
             <View style={styles.zoneNameRow}>
               <Feather name="map-pin" size={14} color={Colors.dark.primary} />
               <ThemedText type="h2" style={styles.zoneName}>
-                {zone?.name || "Select Zone"}
+                {zone?.name || t.now.selectZone}
               </ThemedText>
             </View>
             {context ? (
@@ -174,7 +174,7 @@ export default function NowScreen() {
             <View style={styles.zonePickerContent}>
               <Feather name="navigation" size={14} color={Colors.dark.primary} />
               <ThemedText type="body" style={{ marginLeft: Spacing.sm }}>
-                Change Zone
+                {t.now.changeZone}
               </ThemedText>
             </View>
             <Feather
@@ -265,7 +265,7 @@ export default function NowScreen() {
                   ranking.confidence === "Medium" && { color: Colors.dark.warning },
                   ranking.confidence === "Weak" && { color: Colors.dark.danger },
                 ]}>
-                  {ranking.confidence}
+                  {ranking.confidence === "Strong" ? t.now.strong : ranking.confidence === "Medium" ? t.now.medium : t.now.weak}
                 </ThemedText>
               </View>
             </View>

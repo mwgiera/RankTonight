@@ -20,6 +20,8 @@ type TranslationKeys = {
     alternativeOptions: string;
     demand: string;
     friction: string;
+    incentive: string;
+    reliable: string;
     high: string;
     medium: string;
     low: string;
@@ -27,6 +29,9 @@ type TranslationKeys = {
     strong: string;
     weak: string;
     basedOn: string;
+    changeZone: string;
+    scoreBreakdown: string;
+    selectZone: string;
   };
   zones: {
     title: string;
@@ -112,6 +117,8 @@ const translations: Record<Language, TranslationKeys> = {
       alternativeOptions: "Alternative Options",
       demand: "Demand",
       friction: "Friction",
+      incentive: "Incentive",
+      reliable: "Reliable",
       high: "High",
       medium: "Medium",
       low: "Low",
@@ -119,6 +126,9 @@ const translations: Record<Language, TranslationKeys> = {
       strong: "Strong",
       weak: "Weak",
       basedOn: "Based on",
+      changeZone: "Change Zone",
+      scoreBreakdown: "Score Breakdown",
+      selectZone: "Select Zone",
     },
     zones: {
       title: "Zones",
@@ -202,6 +212,8 @@ const translations: Record<Language, TranslationKeys> = {
       alternativeOptions: "Weitere Optionen",
       demand: "Nachfrage",
       friction: "Reibung",
+      incentive: "Anreiz",
+      reliable: "Zuverlässig",
       high: "Hoch",
       medium: "Mittel",
       low: "Niedrig",
@@ -209,6 +221,9 @@ const translations: Record<Language, TranslationKeys> = {
       strong: "Stark",
       weak: "Schwach",
       basedOn: "Basierend auf",
+      changeZone: "Zone wechseln",
+      scoreBreakdown: "Punkteaufschlüsselung",
+      selectZone: "Zone auswählen",
     },
     zones: {
       title: "Zonen",
@@ -292,6 +307,8 @@ const translations: Record<Language, TranslationKeys> = {
       alternativeOptions: "Alternatywne opcje",
       demand: "Popyt",
       friction: "Opór",
+      incentive: "Zachęta",
+      reliable: "Niezawodny",
       high: "Wysoki",
       medium: "Średni",
       low: "Niski",
@@ -299,6 +316,9 @@ const translations: Record<Language, TranslationKeys> = {
       strong: "Silna",
       weak: "Słaba",
       basedOn: "Na podstawie",
+      changeZone: "Zmień strefę",
+      scoreBreakdown: "Rozkład punktów",
+      selectZone: "Wybierz strefę",
     },
     zones: {
       title: "Strefy",

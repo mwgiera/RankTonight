@@ -4,6 +4,7 @@ import { View, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing, Colors } from "@/constants/theme";
+import { useLanguage } from "@/lib/language-context";
 
 interface ScoreBreakdownProps {
   demand: number;
@@ -19,6 +20,7 @@ export function ScoreBreakdown({
   reliability,
 }: ScoreBreakdownProps) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   const total = demand + friction + incentive + reliability;
   const demandPercent = (demand / total) * 100;
@@ -29,7 +31,7 @@ export function ScoreBreakdown({
   return (
     <View style={styles.container}>
       <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.xs }}>
-        Score Breakdown
+        {t.now.scoreBreakdown}
       </ThemedText>
       <View style={[styles.barContainer, { backgroundColor: theme.backgroundTertiary }]}>
         <View
@@ -49,25 +51,25 @@ export function ScoreBreakdown({
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: Colors.dark.success }]} />
           <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-            Demand
+            {t.now.demand}
           </ThemedText>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: Colors.dark.danger }]} />
           <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-            Friction
+            {t.now.friction}
           </ThemedText>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: Colors.dark.warning }]} />
           <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-            Incentive
+            {t.now.incentive}
           </ThemedText>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: Colors.dark.primary }]} />
           <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-            Reliable
+            {t.now.reliable}
           </ThemedText>
         </View>
       </View>
