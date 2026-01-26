@@ -1,0 +1,144 @@
+collapse from (day × hour) noise into (dayMode × timeRegime) regimes. You’ll get:
+
+stable recommendations (no “minute jitter”)
+
+UI that matches the engine (no “display-only” context)
+
+simpler tuning (you tune 2×7 cells per zone, not 168)
+
+Below is a minimal refactor that preserves your current scoring pipeline and only replaces seasonality indexing + timeRegime boundaries.
+
+1) Fix TimeRegime to match driver reality (late-night crosses midnight)
+export type TimeRegime =
+  | "early-morning"   // 05–07
+  | "morning-rush"    // 07–10
+  | "midday"          // 10–14
+  | "afternoon"       // 14–17
+  | "evening-rush"    // 17–20
+  | "late-night"      // 20–02
+  | "overnight";      // 02–05
+
+function getTimeRegime(hour: number): TimeRegime {
+  if (hour >= 5 && hour < 7) return "early-morning";
+  if (hour >= 7 && hour < 10) return "morning-rush";
+  if (hour >= 10 && hour < 14) return "midday";
+  if (hour >= 14 && hour < 17) return "afternoon";
+  if (hour >= 17 && hour < 20) return "evening-rush";
+  if (hour >= 20 || hour < 2) return "late-night"; // cross-midnight
+  return "overnight"; // 02–05
+}
+Update getTimeRegimeLabel() to match those ranges.
+
+2) Replace SEASONALITY_MULTIPLIERS[zone][day][hour] with [zone][dayMode][timeRegime]
+New table type + data structure
+type SeasonalityTable = Record<ZoneCategory, Record<DayMode, Record<TimeRegime, number>>>;
+
+const SEASONALITY: SeasonalityTable = {
+  airport: {
+    WEEKDAY: {
+      "early-morning": 1.6,
+      "morning-rush":  1.8,
+      "midday":        1.2,
+      "afternoon":     1.4,
+      "evening-rush":  1.5,
+      "late-night":    0.8,
+      "overnight":     0.6,
+    },
+    WEEKEND: {
+      "early-morning": 1.3,
+      "morning-rush":  1.4,
+      "midday":        1.3,
+      "afternoon":     1.5,
+      "evening-rush":  1.3,
+      "late-night":    0.7,
+      "overnight":     0.6,
+    },
+  },
+
+  center: {
+    WEEKDAY: {
+      "early-morning": 0.9,
+      "morning-rush":  1.6,
+      "midday":        1.1,
+      "afternoon":     1.2,
+      "evening-rush":  1.8,
+      "late-night":    0.6,
+      "overnight":     0.5,
+    },
+    WEEKEND: {
+      "early-morning": 0.8,
+      "morning-rush":  0.9,
+      "midday":        1.3,
+      "afternoon":     1.5,
+      "evening-rush":  1.7,
+      "late-night":    2.0,
+      "overnight":     1.6,
+    },
+  },
+
+  residential: {
+    WEEKDAY: {
+      "early-morning": 1.0,
+      "morning-rush":  1.5,
+      "midday":        0.9,
+      "afternoon":     1.1,
+      "evening-rush":  1.4,
+      "late-night":    0.5,
+      "overnight":     0.4,
+    },
+    WEEKEND: {
+      "early-morning": 0.8,
+      "morning-rush":  0.9,
+      "midday":        1.0,
+      "afternoon":     1.1,
+      "evening-rush":  1.2,
+      "late-night":    0.6,
+      "overnight":     0.4,
+    },
+  },
+};
+These numbers are consistent with your previous heuristics:
+
+center weekend late-night peaks hardest
+
+residential weekday commute peaks
+
+airport morning + afternoon peaks
+
+Tuning later is trivial.
+
+3) Update calculateDemand() to use the new regime-based seasonality
+Replace:
+
+const day = date.getDay();
+const hour = date.getHours();
+const seasonality = SEASONALITY_MULTIPLIERS[zoneCategory][day][hour];
+with:
+
+const day = date.getDay();
+const hour = date.getHours();
+
+const dayMode = getDayType(day, hour);           // your Fri>=20 rule
+const timeRegime = getTimeRegime(hour);
+
+const seasonality = SEASONALITY[zoneCategory][dayMode][timeRegime];
+Everything else in calculateDemand() stays the same.
+
+4) Make the UI “Context Mode” truthful by reusing the same regime logic
+Your getContextMode() already calls getDayType() and getTimeRegime(). After this refactor, that context is no longer decorative — it’s causal.
+
+5) Optional but correct: do the same collapse for congestion (later)
+Right now congestion is [zone][hour]. That’s fine for v1.
+If you want stability and fewer dials, you can later make:
+
+CONGESTION[zone][timeRegime].
+
+Not required to ship the dayMode/timeRegime seasonality refactor.
+
+What to delete after refactor
+generateSeasonalityTable()
+
+SEASONALITY_MULTIPLIERS (day/hour version)
+
+Because they become a liability: too many degrees of freedom.
+

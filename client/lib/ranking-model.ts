@@ -83,10 +83,10 @@ function getDayType(day: number, hour: number): DayMode {
 function getTimeRegime(hour: number): TimeRegime {
   if (hour >= 5 && hour < 7) return "early-morning";
   if (hour >= 7 && hour < 10) return "morning-rush";
-  if (hour >= 10 && hour < 12) return "midday";
-  if (hour >= 12 && hour < 17) return "afternoon";
+  if (hour >= 10 && hour < 14) return "midday";
+  if (hour >= 14 && hour < 17) return "afternoon";
   if (hour >= 17 && hour < 20) return "evening-rush";
-  if (hour >= 20 && hour < 24) return "late-night";
+  if (hour >= 20 || hour < 2) return "late-night";
   return "overnight";
 }
 
@@ -94,11 +94,11 @@ function getTimeRegimeLabel(regime: TimeRegime): string {
   const labels: Record<TimeRegime, string> = {
     "early-morning": "Early Morning (05-07)",
     "morning-rush": "Morning Rush (07-10)",
-    "midday": "Midday (10-12)",
-    "afternoon": "Afternoon (12-17)",
+    "midday": "Midday (10-14)",
+    "afternoon": "Afternoon (14-17)",
     "evening-rush": "Evening Rush (17-20)",
-    "late-night": "Late Night (20-00)",
-    "overnight": "Overnight (00-05)",
+    "late-night": "Late Night (20-02)",
+    "overnight": "Overnight (02-05)",
   };
   return labels[regime];
 }
@@ -117,52 +117,70 @@ export function getContextMode(date: Date = new Date()): ContextMode {
   };
 }
 
-const SEASONALITY_MULTIPLIERS: Record<ZoneCategory, Record<number, Record<number, number>>> = {
-  airport: generateSeasonalityTable("airport"),
-  center: generateSeasonalityTable("center"),
-  residential: generateSeasonalityTable("residential"),
+type SeasonalityTable = Record<ZoneCategory, Record<DayMode, Record<TimeRegime, number>>>;
+
+const SEASONALITY: SeasonalityTable = {
+  airport: {
+    WEEKDAY: {
+      "early-morning": 1.6,
+      "morning-rush": 1.8,
+      "midday": 1.2,
+      "afternoon": 1.4,
+      "evening-rush": 1.5,
+      "late-night": 0.8,
+      "overnight": 0.6,
+    },
+    WEEKEND: {
+      "early-morning": 1.3,
+      "morning-rush": 1.4,
+      "midday": 1.3,
+      "afternoon": 1.5,
+      "evening-rush": 1.3,
+      "late-night": 0.7,
+      "overnight": 0.6,
+    },
+  },
+  center: {
+    WEEKDAY: {
+      "early-morning": 0.9,
+      "morning-rush": 1.6,
+      "midday": 1.1,
+      "afternoon": 1.2,
+      "evening-rush": 1.8,
+      "late-night": 0.6,
+      "overnight": 0.5,
+    },
+    WEEKEND: {
+      "early-morning": 0.8,
+      "morning-rush": 0.9,
+      "midday": 1.3,
+      "afternoon": 1.5,
+      "evening-rush": 1.7,
+      "late-night": 2.0,
+      "overnight": 1.6,
+    },
+  },
+  residential: {
+    WEEKDAY: {
+      "early-morning": 1.0,
+      "morning-rush": 1.5,
+      "midday": 0.9,
+      "afternoon": 1.1,
+      "evening-rush": 1.4,
+      "late-night": 0.5,
+      "overnight": 0.4,
+    },
+    WEEKEND: {
+      "early-morning": 0.8,
+      "morning-rush": 0.9,
+      "midday": 1.0,
+      "afternoon": 1.1,
+      "evening-rush": 1.2,
+      "late-night": 0.6,
+      "overnight": 0.4,
+    },
+  },
 };
-
-function generateSeasonalityTable(category: ZoneCategory): Record<number, Record<number, number>> {
-  const table: Record<number, Record<number, number>> = {};
-  
-  for (let day = 0; day < 7; day++) {
-    table[day] = {};
-    for (let hour = 0; hour < 24; hour++) {
-      let multiplier = 1.0;
-      
-      if (category === "airport") {
-        if (hour >= 5 && hour <= 9) multiplier = 1.8;
-        else if (hour >= 16 && hour <= 20) multiplier = 1.6;
-        else if (hour >= 0 && hour <= 4) multiplier = 0.6;
-        else multiplier = 1.2;
-      } else if (category === "center") {
-        const dayType = getDayType(day, hour);
-
-        if (dayType === "WEEKEND") {
-          if (hour >= 20 || hour <= 2) multiplier = 2.0;
-          else if (hour >= 12 && hour <= 18) multiplier = 1.5;
-          else multiplier = 0.8;
-        } else {
-          if (hour >= 7 && hour <= 9) multiplier = 1.6;
-          else if (hour >= 17 && hour <= 19) multiplier = 1.8;
-          else if (hour >= 12 && hour <= 14) multiplier = 1.3;
-          else if (hour >= 22 || hour <= 5) multiplier = 0.5;
-          else multiplier = 1.0;
-        }
-      } else {
-        if (hour >= 7 && hour <= 9) multiplier = 1.5;
-        else if (hour >= 17 && hour <= 19) multiplier = 1.4;
-        else if (hour >= 22 || hour <= 6) multiplier = 0.4;
-        else multiplier = 0.9;
-      }
-      
-      table[day][hour] = multiplier;
-    }
-  }
-  
-  return table;
-}
 
 const CONGESTION_MULTIPLIERS: Record<ZoneCategory, Record<number, number>> = {
   airport: {
@@ -230,7 +248,10 @@ function calculateDemand(zoneCategory: ZoneCategory, date: Date): number {
   const day = date.getDay();
   const hour = date.getHours();
   
-  const seasonality = SEASONALITY_MULTIPLIERS[zoneCategory][day][hour];
+  const dayMode = getDayType(day, hour);
+  const timeRegime = getTimeRegime(hour);
+  
+  const seasonality = SEASONALITY[zoneCategory][dayMode][timeRegime];
   const weather = getWeatherMultiplier();
   const event = getEventMultiplier();
   
