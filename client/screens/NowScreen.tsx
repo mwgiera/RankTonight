@@ -202,9 +202,10 @@ export default function NowScreen() {
                         <Feather name="moon" size={12} color={Colors.dark.primary} style={{ marginRight: Spacing.xs }} />
                       ) : null}
                       <ThemedText
-                        type={isSelected ? "bodyBold" : "body"}
+                        type="body"
                         style={{
                           color: isSelected ? Colors.dark.primary : theme.text,
+                          fontWeight: isSelected ? "600" : "400",
                         }}
                       >
                         {z.name}
@@ -254,12 +255,13 @@ export default function NowScreen() {
               <View style={[styles.confidenceBadge, 
                 ranking.confidence === "Strong" && { backgroundColor: Colors.dark.success + "30" },
                 ranking.confidence === "Medium" && { backgroundColor: Colors.dark.warning + "30" },
-                ranking.confidence === "Weak" && { backgroundColor: Colors.dark.error + "30" },
+                ranking.confidence === "Weak" && { backgroundColor: Colors.dark.danger + "30" },
               ]}>
-                <ThemedText type="bodyBold" style={[
+                <ThemedText type="body" style={[
+                  { fontWeight: "600" },
                   ranking.confidence === "Strong" && { color: Colors.dark.success },
                   ranking.confidence === "Medium" && { color: Colors.dark.warning },
-                  ranking.confidence === "Weak" && { color: Colors.dark.error },
+                  ranking.confidence === "Weak" && { color: Colors.dark.danger },
                 ]}>
                   {ranking.confidence}
                 </ThemedText>
