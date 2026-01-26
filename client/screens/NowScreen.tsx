@@ -31,10 +31,11 @@ import {
   getZoneById,
   ZONES,
   type RankingResult,
-  type ContextMode,
 } from "@/lib/ranking-model";
 import { getSelectedZone, setSelectedZone } from "@/lib/storage";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { useLanguage } from "@/lib/language-context";
+import { getTimeRegimeLabelTranslated, getDayModeLabelTranslated } from "@/lib/translations";
 
 export default function NowScreen() {
   const insets = useSafeAreaInsets();
@@ -42,6 +43,7 @@ export default function NowScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { language, t } = useLanguage();
 
   const [selectedZoneId, setSelectedZoneId] = useState("downtown");
   const [ranking, setRanking] = useState<RankingResult | null>(null);
@@ -151,12 +153,12 @@ export default function NowScreen() {
               <View style={styles.contextBadges}>
                 <View style={[styles.contextBadge, context.dayMode === "WEEKEND" && styles.contextBadgeActive]}>
                   <ThemedText type="caption" style={[styles.contextBadgeText, context.dayMode === "WEEKEND" && styles.contextBadgeTextActive]}>
-                    {context.dayModeLabel}
+                    {getDayModeLabelTranslated(context.dayMode, language)}
                   </ThemedText>
                 </View>
                 <View style={styles.contextDot} />
                 <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                  {context.timeRegimeLabel}
+                  {getTimeRegimeLabelTranslated(context.timeRegime, language)}
                 </ThemedText>
               </View>
             ) : null}
@@ -232,7 +234,7 @@ export default function NowScreen() {
           <View style={styles.contextConfidenceRow}>
             <View style={styles.contextSummary}>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                CONTEXT
+                {t.now.basedOn.toUpperCase()}
               </ThemedText>
               <ThemedText type="caption" style={{ color: theme.text, marginTop: 2 }}>
                 {zone?.name}
@@ -240,17 +242,17 @@ export default function NowScreen() {
               {context ? (
                 <>
                   <ThemedText type="caption" style={{ color: context.dayMode === "WEEKEND" ? Colors.dark.primary : theme.textSecondary }}>
-                    {context.dayModeLabel}
+                    {getDayModeLabelTranslated(context.dayMode, language)}
                   </ThemedText>
                   <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                    {context.timeRegimeLabel}
+                    {getTimeRegimeLabelTranslated(context.timeRegime, language)}
                   </ThemedText>
                 </>
               ) : null}
             </View>
             <View style={styles.confidenceSummary}>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                CONFIDENCE
+                {t.now.confidence.toUpperCase()}
               </ThemedText>
               <View style={[styles.confidenceBadge, 
                 ranking.confidence === "Strong" && { backgroundColor: Colors.dark.success + "30" },
@@ -273,7 +275,7 @@ export default function NowScreen() {
 
           <View style={styles.cardHeader}>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              BEST CHOICE NOW
+              {t.now.topPick}
             </ThemedText>
           </View>
           <View style={styles.platformRow}>
@@ -301,7 +303,7 @@ export default function NowScreen() {
             type="h2"
             style={{ marginTop: Spacing["2xl"], marginBottom: Spacing.md }}
           >
-            Alternatives
+            {t.now.alternativeOptions}
           </ThemedText>
           {alternativeRankings.map((r, index) => (
             <PlatformCard

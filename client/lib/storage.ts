@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { EarningsLog } from "./ranking-model";
 
+export type { EarningsLog };
+
 const EARNINGS_KEY = "@driveradar:earnings";
 const SELECTED_ZONE_KEY = "@driveradar:selected_zone";
 const USER_PREFS_KEY = "@driveradar:user_prefs";
