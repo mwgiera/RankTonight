@@ -15,6 +15,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, Colors } from "@/constants/theme";
 import { ZONES, type Zone, type ZoneCategory } from "@/lib/ranking-model";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { useLanguage } from "@/lib/language-context";
 
 type CategoryFilter = "all" | ZoneCategory;
 
@@ -24,6 +25,7 @@ export default function ZonesScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useLanguage();
 
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
@@ -49,12 +51,16 @@ export default function ZonesScreen() {
     navigation.navigate("ZoneDetail", { zoneId: zone.id });
   };
 
-  const categories: { key: CategoryFilter; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "airport", label: "Airport" },
-    { key: "center", label: "Center" },
-    { key: "residential", label: "Residential" },
-  ];
+  const getCategoryLabel = (key: CategoryFilter): string => {
+    switch (key) {
+      case "all": return t.zones.all;
+      case "airport": return t.zones.airport;
+      case "center": return t.zones.center;
+      case "residential": return t.zones.residential;
+    }
+  };
+
+  const categories: CategoryFilter[] = ["all", "airport", "center", "residential"];
 
   const renderItem = ({ item, index }: { item: Zone; index: number }) => (
     <Animated.View entering={FadeInDown.delay(index * 50).duration(300)}>
@@ -79,13 +85,13 @@ export default function ZonesScreen() {
             <FlatList
               horizontal
               data={categories}
-              keyExtractor={(item) => item.key}
+              keyExtractor={(item) => item}
               showsHorizontalScrollIndicator={false}
               renderItem={({ item }) => (
                 <CategoryChip
-                  label={item.label}
-                  isSelected={selectedCategory === item.key}
-                  onPress={() => handleCategorySelect(item.key)}
+                  label={getCategoryLabel(item)}
+                  isSelected={selectedCategory === item}
+                  onPress={() => handleCategorySelect(item)}
                 />
               )}
               contentContainerStyle={styles.chipsContainer}
@@ -102,7 +108,7 @@ export default function ZonesScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <ThemedText type="body" style={{ color: theme.textSecondary }}>
-              No zones found
+              {t.zones.selectZone}
             </ThemedText>
           </View>
         }

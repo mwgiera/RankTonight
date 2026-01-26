@@ -33,9 +33,11 @@ type TranslationKeys = {
     selectZone: string;
     currentZone: string;
     behaviorBias: string;
+    all: string;
     airport: string;
     center: string;
     residential: string;
+    noZonesFound: string;
   };
   log: {
     title: string;
@@ -49,7 +51,12 @@ type TranslationKeys = {
     cancel: string;
     recentLogs: string;
     noLogs: string;
+    noLogsDesc: string;
+    logFirstRide: string;
     delete: string;
+    totalEarnings: string;
+    hoursLogged: string;
+    avgRate: string;
   };
   profile: {
     title: string;
@@ -118,9 +125,11 @@ const translations: Record<Language, TranslationKeys> = {
       selectZone: "Select Zone",
       currentZone: "Current Zone",
       behaviorBias: "Behavior",
+      all: "All",
       airport: "Airport",
       center: "City Center",
       residential: "Residential",
+      noZonesFound: "No zones found",
     },
     log: {
       title: "Earnings Log",
@@ -133,8 +142,13 @@ const translations: Record<Language, TranslationKeys> = {
       save: "Save",
       cancel: "Cancel",
       recentLogs: "Recent Logs",
-      noLogs: "No earnings logged yet",
+      noLogs: "No Earnings Logged",
+      noLogsDesc: "Start logging your rides to track performance and improve recommendations.",
+      logFirstRide: "Log Your First Ride",
       delete: "Delete",
+      totalEarnings: "Total Earnings",
+      hoursLogged: "Hours Logged",
+      avgRate: "Avg Rate",
     },
     profile: {
       title: "Profile",
@@ -201,9 +215,11 @@ const translations: Record<Language, TranslationKeys> = {
       selectZone: "Zone auswählen",
       currentZone: "Aktuelle Zone",
       behaviorBias: "Verhalten",
+      all: "Alle",
       airport: "Flughafen",
       center: "Stadtzentrum",
       residential: "Wohngebiet",
+      noZonesFound: "Keine Zonen gefunden",
     },
     log: {
       title: "Einnahmen-Protokoll",
@@ -216,8 +232,13 @@ const translations: Record<Language, TranslationKeys> = {
       save: "Speichern",
       cancel: "Abbrechen",
       recentLogs: "Letzte Einträge",
-      noLogs: "Noch keine Einnahmen protokolliert",
+      noLogs: "Keine Einnahmen protokolliert",
+      noLogsDesc: "Protokollieren Sie Ihre Fahrten, um die Leistung zu verfolgen und Empfehlungen zu verbessern.",
+      logFirstRide: "Erste Fahrt protokollieren",
       delete: "Löschen",
+      totalEarnings: "Gesamteinnahmen",
+      hoursLogged: "Stunden protokolliert",
+      avgRate: "Durchschn. Rate",
     },
     profile: {
       title: "Profil",
@@ -284,9 +305,11 @@ const translations: Record<Language, TranslationKeys> = {
       selectZone: "Wybierz strefę",
       currentZone: "Aktualna strefa",
       behaviorBias: "Zachowanie",
+      all: "Wszystkie",
       airport: "Lotnisko",
       center: "Centrum miasta",
       residential: "Dzielnica mieszkaniowa",
+      noZonesFound: "Nie znaleziono stref",
     },
     log: {
       title: "Dziennik zarobków",
@@ -300,7 +323,12 @@ const translations: Record<Language, TranslationKeys> = {
       cancel: "Anuluj",
       recentLogs: "Ostatnie wpisy",
       noLogs: "Brak zarejestrowanych zarobków",
+      noLogsDesc: "Zacznij rejestrować swoje przejazdy, aby śledzić wydajność i ulepszać rekomendacje.",
+      logFirstRide: "Zarejestruj pierwszą jazdę",
       delete: "Usuń",
+      totalEarnings: "Łączne zarobki",
+      hoursLogged: "Godzin zarejestrowanych",
+      avgRate: "Średnia stawka",
     },
     profile: {
       title: "Profil",

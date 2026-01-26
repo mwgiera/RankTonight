@@ -16,6 +16,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, Colors } from "@/constants/theme";
 import { getEarningsLogs, deleteEarningsLog, type EarningsLog } from "@/lib/storage";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { useLanguage } from "@/lib/language-context";
 
 export default function LogScreen() {
   const insets = useSafeAreaInsets();
@@ -23,6 +24,7 @@ export default function LogScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useLanguage();
 
   const [logs, setLogs] = useState<EarningsLog[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,16 +79,16 @@ export default function LogScreen() {
         resizeMode="contain"
       />
       <ThemedText type="h3" style={{ textAlign: "center", marginTop: Spacing.lg }}>
-        No Earnings Logged
+        {t.log.noLogs}
       </ThemedText>
       <ThemedText
         type="body"
         style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}
       >
-        Start logging your rides to track performance and improve recommendations.
+        {t.log.noLogsDesc}
       </ThemedText>
       <Button onPress={handleAddLog} style={styles.emptyButton}>
-        Log Your First Ride
+        {t.log.logFirstRide}
       </Button>
     </Animated.View>
   );
@@ -97,7 +99,7 @@ export default function LogScreen() {
         <View style={[styles.statsCard, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.statItem}>
             <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-              Total Earnings
+              {t.log.totalEarnings}
             </ThemedText>
             <ThemedText type="h2" style={{ color: Colors.dark.success }}>
               ${totalEarnings.toFixed(2)}
@@ -106,14 +108,14 @@ export default function LogScreen() {
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-              Hours Logged
+              {t.log.hoursLogged}
             </ThemedText>
             <ThemedText type="h2">{totalHours}h</ThemedText>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-              Avg Rate
+              {t.log.avgRate}
             </ThemedText>
             <ThemedText type="h2" style={{ color: Colors.dark.primary }}>
               ${avgHourlyRate.toFixed(0)}/h
@@ -124,7 +126,7 @@ export default function LogScreen() {
           type="h2"
           style={{ marginTop: Spacing.lg, marginBottom: Spacing.md }}
         >
-          Recent Logs
+          {t.log.recentLogs}
         </ThemedText>
       </Animated.View>
     ) : null;
