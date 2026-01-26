@@ -31,6 +31,7 @@ import {
   getZoneById,
   ZONES,
   type RankingResult,
+  type ContextMode,
 } from "@/lib/ranking-model";
 import { getSelectedZone, setSelectedZone } from "@/lib/storage";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -103,13 +104,11 @@ export default function NowScreen() {
   }));
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString([], {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
-  const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const dayStr = dayNames[now.getDay()];
   const zone = getZoneById(selectedZoneId);
+  const context = ranking?.context;
 
   if (!ranking) {
     return (
@@ -141,9 +140,28 @@ export default function NowScreen() {
         }
       >
         <Animated.View entering={FadeInDown.delay(0).duration(400)}>
-          <View style={styles.dateRow}>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              {dateStr} - {timeStr}
+          <View style={styles.contextHeader}>
+            <View style={styles.zoneNameRow}>
+              <Feather name="map-pin" size={14} color={Colors.dark.primary} />
+              <ThemedText type="h2" style={styles.zoneName}>
+                {zone?.name || "Select Zone"}
+              </ThemedText>
+            </View>
+            {context ? (
+              <View style={styles.contextBadges}>
+                <View style={[styles.contextBadge, context.dayMode === "WEEKEND" && styles.contextBadgeActive]}>
+                  <ThemedText type="caption" style={[styles.contextBadgeText, context.dayMode === "WEEKEND" && styles.contextBadgeTextActive]}>
+                    {context.dayModeLabel}
+                  </ThemedText>
+                </View>
+                <View style={styles.contextDot} />
+                <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                  {context.timeRegimeLabel}
+                </ThemedText>
+              </View>
+            ) : null}
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
+              {dayStr} {timeStr}
             </ThemedText>
           </View>
 
@@ -152,9 +170,9 @@ export default function NowScreen() {
             onPress={() => setShowZonePicker(!showZonePicker)}
           >
             <View style={styles.zonePickerContent}>
-              <Feather name="map-pin" size={16} color={Colors.dark.primary} />
+              <Feather name="navigation" size={14} color={Colors.dark.primary} />
               <ThemedText type="body" style={{ marginLeft: Spacing.sm }}>
-                {zone?.name || "Select Zone"}
+                Change Zone
               </ThemedText>
             </View>
             <Feather
@@ -166,28 +184,38 @@ export default function NowScreen() {
 
           {showZonePicker ? (
             <View style={[styles.zoneDropdown, { backgroundColor: theme.backgroundDefault }]}>
-              {ZONES.map((z) => (
-                <Pressable
-                  key={z.id}
-                  style={[
-                    styles.zoneOption,
-                    z.id === selectedZoneId && { backgroundColor: theme.backgroundSecondary },
-                  ]}
-                  onPress={() => handleZoneSelect(z.id)}
-                >
-                  <ThemedText
-                    type="body"
-                    style={{
-                      color: z.id === selectedZoneId ? Colors.dark.primary : theme.text,
-                    }}
+              {ZONES.map((z) => {
+                const isSelected = z.id === selectedZoneId;
+                const isLateNightBias = z.behaviorBias === "late-night bias";
+                const isActiveNow = context?.timeRegime === "late-night" && isLateNightBias;
+                return (
+                  <Pressable
+                    key={z.id}
+                    style={[
+                      styles.zoneOption,
+                      isSelected && { backgroundColor: theme.backgroundSecondary },
+                    ]}
+                    onPress={() => handleZoneSelect(z.id)}
                   >
-                    {z.name}
-                  </ThemedText>
-                  <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                    {z.category}
-                  </ThemedText>
-                </Pressable>
-              ))}
+                    <View style={styles.zoneOptionLeft}>
+                      {isActiveNow ? (
+                        <Feather name="moon" size={12} color={Colors.dark.primary} style={{ marginRight: Spacing.xs }} />
+                      ) : null}
+                      <ThemedText
+                        type={isSelected ? "bodyBold" : "body"}
+                        style={{
+                          color: isSelected ? Colors.dark.primary : theme.text,
+                        }}
+                      >
+                        {z.name}
+                      </ThemedText>
+                    </View>
+                    <ThemedText type="caption" style={{ color: isActiveNow ? Colors.dark.primary : theme.textSecondary }}>
+                      {z.behaviorBias}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
             </View>
           ) : null}
         </Animated.View>
@@ -200,6 +228,47 @@ export default function NowScreen() {
             pulseStyle,
           ]}
         >
+          <View style={styles.contextConfidenceRow}>
+            <View style={styles.contextSummary}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                CONTEXT
+              </ThemedText>
+              <ThemedText type="caption" style={{ color: theme.text, marginTop: 2 }}>
+                {zone?.name}
+              </ThemedText>
+              {context ? (
+                <>
+                  <ThemedText type="caption" style={{ color: context.dayMode === "WEEKEND" ? Colors.dark.primary : theme.textSecondary }}>
+                    {context.dayModeLabel}
+                  </ThemedText>
+                  <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                    {context.timeRegimeLabel}
+                  </ThemedText>
+                </>
+              ) : null}
+            </View>
+            <View style={styles.confidenceSummary}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                CONFIDENCE
+              </ThemedText>
+              <View style={[styles.confidenceBadge, 
+                ranking.confidence === "Strong" && { backgroundColor: Colors.dark.success + "30" },
+                ranking.confidence === "Medium" && { backgroundColor: Colors.dark.warning + "30" },
+                ranking.confidence === "Weak" && { backgroundColor: Colors.dark.error + "30" },
+              ]}>
+                <ThemedText type="bodyBold" style={[
+                  ranking.confidence === "Strong" && { color: Colors.dark.success },
+                  ranking.confidence === "Medium" && { color: Colors.dark.warning },
+                  ranking.confidence === "Weak" && { color: Colors.dark.error },
+                ]}>
+                  {ranking.confidence}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
+
           <View style={styles.cardHeader}>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
               BEST CHOICE NOW
@@ -259,8 +328,44 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  dateRow: {
-    marginBottom: Spacing.md,
+  contextHeader: {
+    marginBottom: Spacing.lg,
+  },
+  zoneNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  zoneName: {
+    marginLeft: Spacing.xs,
+  },
+  contextBadges: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.sm,
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+  },
+  contextBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  contextBadgeActive: {
+    backgroundColor: Colors.dark.primary + "30",
+  },
+  contextBadgeText: {
+    color: "rgba(255,255,255,0.6)",
+  },
+  contextBadgeTextActive: {
+    color: Colors.dark.primary,
+  },
+  contextDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.3)",
   },
   zonePicker: {
     flexDirection: "row",
@@ -285,10 +390,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.md,
   },
+  zoneOptionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   recommendationCard: {
     padding: Spacing.xl,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
+  },
+  contextConfidenceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  contextSummary: {
+    flex: 1,
+  },
+  confidenceSummary: {
+    alignItems: "flex-end",
+  },
+  confidenceBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.xs,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    marginVertical: Spacing.md,
   },
   cardHeader: {
     marginBottom: Spacing.sm,

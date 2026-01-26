@@ -1,0 +1,144 @@
+1. Primary issue (the real one)
+The screen currently shows:
+
+“Nightlife District”
+Montag, 26. Jan., 23:19
+
+But the system internally already knows:
+
+it’s late-night
+
+it’s weekend-like (Friday ≥ 20:00 logic now exists)
+
+it’s a center / nightlife regime
+
+Yet none of that is made explicit.
+
+So the UI forces the user to infer context that the model already resolved.
+
+That is backwards.
+
+2. Mandatory adjustment: surface Context Mode
+You need to expose one compact, authoritative context label.
+
+Replace the single-line date header with:
+Nightlife District · Weekend Mode
+Mon 23:19
+or even better (hierarchical clarity):
+
+Nightlife District
+Weekend Mode · Late Night (22–02)
+
+This does three things:
+
+Signals why recommendations differ from weekday behavior
+
+Removes suspicion of randomness
+
+Aligns user intuition with model regime
+
+This is not UX sugar — it’s model explainability at the UI layer.
+
+3. Zone list: add semantic reinforcement (small but important)
+Right now all center zones look equal in the dropdown.
+
+They are not equal at night.
+
+Adjustment
+Annotate center zones with behavioral tags, not categories.
+
+Example:
+
+Airport
+
+Downtown (daytime bias)
+
+Central Station (transit-heavy)
+
+Nightlife District (late-night bias) ← highlighted
+
+Business Park (weekday bias)
+
+Do not add new logic.
+This is just truthful labeling of what the model already assumes.
+
+4. Selection state: strengthen visual authority
+Currently the selected zone is just highlighted.
+
+For “Nightlife District” at 23:19, it should own the screen.
+
+Adjustments:
+Slightly increase font weight for the selected zone
+
+Add a subtle icon or marker (🌙 or similar, muted)
+
+Keep it restrained — this is not gamification
+
+You’re signaling: “You are in a different regime now.”
+
+5. Confidence must be co-located with context
+If the recommendation screen shows a platform ranking, the confidence badge must sit next to the context, not just near the result.
+
+Why?
+Because confidence is a property of context, not of the platform.
+
+Example:
+
+Context
+
+Nightlife District
+
+Weekend Mode
+
+Late Night (22–02)
+
+Confidence: Strong
+
+This prevents a classic misinterpretation:
+
+“The app is confident about Uber”
+instead of the correct:
+“The app is confident about this situation.”
+
+That distinction matters at scale.
+
+6. One critical micro-fix (precision)
+Your header says “Montag” (German) while the rest of the UI is English.
+
+That creates a subconscious “prototype” signal.
+
+Decide:
+
+full English, or
+
+localized per language
+
+But never mixed.
+
+This is small, but for credibility it’s non‑negotiable.
+
+7. What you should not do
+Do not:
+
+add explanations paragraphs
+
+add onboarding text
+
+add tooltips everywhere
+
+Your user is operational, not exploratory.
+
+Surface state, not commentary.
+
+Executive summary (what to actually change)
+If you do only three things, do these:
+
+Expose “Weekend Mode / Late Night” explicitly in the header
+
+Annotate zones with behavioral bias (nightlife, weekday, transit)
+
+Tie confidence to context, not to the platform
+
+That elevates this from “smart calculator” to situational decision system.
+
+If you want, next we can:

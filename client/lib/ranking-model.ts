@@ -1,6 +1,15 @@
 export type Platform = "bolt" | "uber" | "freenow";
 export type ZoneCategory = "airport" | "center" | "residential";
 export type ConfidenceLevel = "Strong" | "Medium" | "Weak";
+export type DayMode = "WEEKDAY" | "WEEKEND";
+export type TimeRegime = "early-morning" | "morning-rush" | "midday" | "afternoon" | "evening-rush" | "late-night" | "overnight";
+
+export interface ContextMode {
+  dayMode: DayMode;
+  timeRegime: TimeRegime;
+  timeRegimeLabel: string;
+  dayModeLabel: string;
+}
 
 export interface PlatformScore {
   platform: Platform;
@@ -17,12 +26,14 @@ export interface RankingResult {
   topPlatform: Platform;
   confidence: ConfidenceLevel;
   confidenceValue: number;
+  context: ContextMode;
 }
 
 export interface Zone {
   id: string;
   name: string;
   category: ZoneCategory;
+  behaviorBias: string;
 }
 
 export interface EarningsLog {
@@ -58,17 +69,52 @@ export const getPlatformColor = (platform: Platform): string => {
 
 export const getAllPlatforms = (): Platform[] => PLATFORMS;
 
-type DayType = "WEEKDAY" | "WEEKEND";
-
 /**
  * JS Date.getDay(): 0=Sun..6=Sat
  * Weekend = Sat/Sun
  * Weekend-like = Fri >= 20:00
  */
-function getDayType(day: number, hour: number): DayType {
+function getDayType(day: number, hour: number): DayMode {
   const weekend = (day === 0 || day === 6);
   const fridayLate = (day === 5 && hour >= 20);
   return (weekend || fridayLate) ? "WEEKEND" : "WEEKDAY";
+}
+
+function getTimeRegime(hour: number): TimeRegime {
+  if (hour >= 5 && hour < 7) return "early-morning";
+  if (hour >= 7 && hour < 10) return "morning-rush";
+  if (hour >= 10 && hour < 12) return "midday";
+  if (hour >= 12 && hour < 17) return "afternoon";
+  if (hour >= 17 && hour < 20) return "evening-rush";
+  if (hour >= 20 && hour < 24) return "late-night";
+  return "overnight";
+}
+
+function getTimeRegimeLabel(regime: TimeRegime): string {
+  const labels: Record<TimeRegime, string> = {
+    "early-morning": "Early Morning (05-07)",
+    "morning-rush": "Morning Rush (07-10)",
+    "midday": "Midday (10-12)",
+    "afternoon": "Afternoon (12-17)",
+    "evening-rush": "Evening Rush (17-20)",
+    "late-night": "Late Night (20-00)",
+    "overnight": "Overnight (00-05)",
+  };
+  return labels[regime];
+}
+
+export function getContextMode(date: Date = new Date()): ContextMode {
+  const day = date.getDay();
+  const hour = date.getHours();
+  const dayMode = getDayType(day, hour);
+  const timeRegime = getTimeRegime(hour);
+  
+  return {
+    dayMode,
+    timeRegime,
+    dayModeLabel: dayMode === "WEEKEND" ? "Weekend Mode" : "Weekday Mode",
+    timeRegimeLabel: getTimeRegimeLabel(timeRegime),
+  };
 }
 
 const SEASONALITY_MULTIPLIERS: Record<ZoneCategory, Record<number, Record<number, number>>> = {
@@ -256,24 +302,26 @@ export function calculateRankings(
   
   const confidenceValue = platformScores[0].probability - platformScores[1].probability;
   const confidence = getConfidenceLevel(confidenceValue);
+  const context = getContextMode(date);
   
   return {
     rankings: platformScores,
     topPlatform: platformScores[0].platform,
     confidence,
     confidenceValue,
+    context,
   };
 }
 
 export const ZONES: Zone[] = [
-  { id: "airport", name: "Airport", category: "airport" },
-  { id: "downtown", name: "Downtown", category: "center" },
-  { id: "central-station", name: "Central Station", category: "center" },
-  { id: "nightlife-district", name: "Nightlife District", category: "center" },
-  { id: "business-park", name: "Business Park", category: "center" },
-  { id: "north-suburbs", name: "North Suburbs", category: "residential" },
-  { id: "south-suburbs", name: "South Suburbs", category: "residential" },
-  { id: "west-side", name: "West Side", category: "residential" },
+  { id: "airport", name: "Airport", category: "airport", behaviorBias: "transit-heavy" },
+  { id: "downtown", name: "Downtown", category: "center", behaviorBias: "daytime bias" },
+  { id: "central-station", name: "Central Station", category: "center", behaviorBias: "transit-heavy" },
+  { id: "nightlife-district", name: "Nightlife District", category: "center", behaviorBias: "late-night bias" },
+  { id: "business-park", name: "Business Park", category: "center", behaviorBias: "weekday bias" },
+  { id: "north-suburbs", name: "North Suburbs", category: "residential", behaviorBias: "commuter hours" },
+  { id: "south-suburbs", name: "South Suburbs", category: "residential", behaviorBias: "commuter hours" },
+  { id: "west-side", name: "West Side", category: "residential", behaviorBias: "commuter hours" },
 ];
 
 export function getZoneById(id: string): Zone | undefined {
