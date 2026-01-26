@@ -58,6 +58,19 @@ export const getPlatformColor = (platform: Platform): string => {
 
 export const getAllPlatforms = (): Platform[] => PLATFORMS;
 
+type DayType = "WEEKDAY" | "WEEKEND";
+
+/**
+ * JS Date.getDay(): 0=Sun..6=Sat
+ * Weekend = Sat/Sun
+ * Weekend-like = Fri >= 20:00
+ */
+function getDayType(day: number, hour: number): DayType {
+  const weekend = (day === 0 || day === 6);
+  const fridayLate = (day === 5 && hour >= 20);
+  return (weekend || fridayLate) ? "WEEKEND" : "WEEKDAY";
+}
+
 const SEASONALITY_MULTIPLIERS: Record<ZoneCategory, Record<number, Record<number, number>>> = {
   airport: generateSeasonalityTable("airport"),
   center: generateSeasonalityTable("center"),
@@ -78,7 +91,9 @@ function generateSeasonalityTable(category: ZoneCategory): Record<number, Record
         else if (hour >= 0 && hour <= 4) multiplier = 0.6;
         else multiplier = 1.2;
       } else if (category === "center") {
-        if (day >= 5) {
+        const dayType = getDayType(day, hour);
+
+        if (dayType === "WEEKEND") {
           if (hour >= 20 || hour <= 2) multiplier = 2.0;
           else if (hour >= 12 && hour <= 18) multiplier = 1.5;
           else multiplier = 0.8;
