@@ -9,6 +9,7 @@ import LogStackNavigator from "@/navigation/LogStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
 import { Colors } from "@/constants/theme";
+import { useLanguage } from "@/lib/language-context";
 
 export type MainTabParamList = {
   NowTab: undefined;
@@ -20,7 +21,8 @@ export type MainTabParamList = {
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <Tab.Navigator
@@ -52,7 +54,7 @@ export default function MainTabNavigator() {
         name="NowTab"
         component={NowStackNavigator}
         options={{
-          title: "Now",
+          title: t.tabs.now,
           tabBarIcon: ({ color, size }) => (
             <Feather name="zap" size={size} color={color} />
           ),
@@ -62,7 +64,7 @@ export default function MainTabNavigator() {
         name="ZonesTab"
         component={ZonesStackNavigator}
         options={{
-          title: "Zones",
+          title: t.tabs.zones,
           tabBarIcon: ({ color, size }) => (
             <Feather name="map" size={size} color={color} />
           ),
@@ -72,7 +74,7 @@ export default function MainTabNavigator() {
         name="LogTab"
         component={LogStackNavigator}
         options={{
-          title: "Log",
+          title: t.tabs.log,
           tabBarIcon: ({ color, size }) => (
             <Feather name="edit-3" size={size} color={color} />
           ),
@@ -82,7 +84,7 @@ export default function MainTabNavigator() {
         name="ProfileTab"
         component={ProfileStackNavigator}
         options={{
-          title: "Profile",
+          title: t.tabs.profile,
           tabBarIcon: ({ color, size }) => (
             <Feather name="user" size={size} color={color} />
           ),

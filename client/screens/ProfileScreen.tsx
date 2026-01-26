@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { View, StyleSheet, Image, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -19,14 +19,18 @@ import {
   clearAllData,
   type UserPreferences,
 } from "@/lib/storage";
+import { useLanguage } from "@/lib/language-context";
+import { LANGUAGES, type Language } from "@/lib/translations";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
+  const { language, setLanguage, t } = useLanguage();
 
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,15 +58,21 @@ export default function ProfileScreen() {
     await saveUserPreferences({ notificationsEnabled: newPrefs.notificationsEnabled });
   };
 
+  const handleLanguageSelect = async (lang: Language) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await setLanguage(lang);
+    setShowLanguagePicker(false);
+  };
+
   const handleClearData = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(
-      "Clear All Data",
-      "This will delete all your logged earnings and preferences. This action cannot be undone.",
+      t.profile.clearAllData,
+      t.profile.clearDataConfirm,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t.common.cancel, style: "cancel" },
         {
-          text: "Clear",
+          text: t.profile.clearAllData,
           style: "destructive",
           onPress: async () => {
             await clearAllData();
@@ -73,6 +83,8 @@ export default function ProfileScreen() {
       ]
     );
   };
+
+  const currentLanguage = LANGUAGES.find((l) => l.code === language);
 
   if (!prefs) {
     return (
@@ -115,11 +127,65 @@ export default function ProfileScreen() {
             type="h2"
             style={{ marginTop: Spacing["2xl"], marginBottom: Spacing.md }}
           >
-            Preferences
+            {t.profile.settings}
           </ThemedText>
 
           <View
             style={[styles.settingCard, { backgroundColor: theme.backgroundDefault }]}
+          >
+            <Pressable
+              style={styles.settingRow}
+              onPress={() => setShowLanguagePicker(!showLanguagePicker)}
+            >
+              <View style={styles.settingInfo}>
+                <Feather name="globe" size={20} color={theme.text} />
+                <ThemedText type="body" style={{ marginLeft: Spacing.md }}>
+                  {t.profile.language}
+                </ThemedText>
+              </View>
+              <View style={styles.languageValue}>
+                <ThemedText type="body" style={{ color: Colors.dark.primary }}>
+                  {currentLanguage?.nativeName}
+                </ThemedText>
+                <Feather
+                  name={showLanguagePicker ? "chevron-up" : "chevron-down"}
+                  size={16}
+                  color={theme.textSecondary}
+                  style={{ marginLeft: Spacing.xs }}
+                />
+              </View>
+            </Pressable>
+            {showLanguagePicker ? (
+              <View style={styles.languageDropdown}>
+                {LANGUAGES.map((lang) => (
+                  <Pressable
+                    key={lang.code}
+                    style={[
+                      styles.languageOption,
+                      lang.code === language && { backgroundColor: theme.backgroundSecondary },
+                    ]}
+                    onPress={() => handleLanguageSelect(lang.code)}
+                  >
+                    <ThemedText
+                      type="body"
+                      style={{
+                        color: lang.code === language ? Colors.dark.primary : theme.text,
+                        fontWeight: lang.code === language ? "600" : "400",
+                      }}
+                    >
+                      {lang.nativeName}
+                    </ThemedText>
+                    <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                      {lang.name}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+          </View>
+
+          <View
+            style={[styles.settingCard, { backgroundColor: theme.backgroundDefault, marginTop: Spacing.md }]}
           >
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
@@ -151,12 +217,6 @@ export default function ProfileScreen() {
                 />
               </Pressable>
             </View>
-            <ThemedText
-              type="caption"
-              style={{ color: theme.textSecondary, marginTop: Spacing.xs }}
-            >
-              Get alerts when top platform changes in your zone
-            </ThemedText>
           </View>
         </Animated.View>
 
@@ -203,20 +263,14 @@ export default function ProfileScreen() {
             type="h2"
             style={{ marginTop: Spacing["2xl"], marginBottom: Spacing.md }}
           >
-            About
+            {t.profile.about}
           </ThemedText>
 
           <View
             style={[styles.settingCard, { backgroundColor: theme.backgroundDefault }]}
           >
             <View style={styles.aboutRow}>
-              <ThemedText type="body">Model Version</ThemedText>
-              <ThemedText type="body" style={{ color: theme.textSecondary }}>
-                1.0.0
-              </ThemedText>
-            </View>
-            <View style={[styles.aboutRow, { marginTop: Spacing.md }]}>
-              <ThemedText type="body">App Version</ThemedText>
+              <ThemedText type="body">{t.profile.version}</ThemedText>
               <ThemedText type="body" style={{ color: theme.textSecondary }}>
                 1.0.0
               </ThemedText>
@@ -224,13 +278,13 @@ export default function ProfileScreen() {
             <View style={styles.creditsDivider} />
             <View style={styles.creditsSection}>
               <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center" }}>
-                Designed by Mateusz Giera
+                {t.profile.designedBy} Mateusz Giera
               </ThemedText>
               <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.xs }}>
-                Developed by Codeinside
+                {t.profile.developedBy} Codeinside
               </ThemedText>
               <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
-                All rights reserved | MIT License
+                {t.profile.license}
               </ThemedText>
             </View>
           </View>
@@ -246,7 +300,7 @@ export default function ProfileScreen() {
           >
             <Feather name="trash-2" size={20} color={Colors.dark.danger} />
             <ThemedText type="body" style={{ color: Colors.dark.danger, marginLeft: Spacing.sm }}>
-              Clear All Data
+              {t.profile.clearAllData}
             </ThemedText>
           </Pressable>
         </Animated.View>
@@ -312,6 +366,25 @@ const styles = StyleSheet.create({
   },
   creditsSection: {
     alignItems: "center",
+  },
+  languageValue: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  languageDropdown: {
+    marginTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
+    paddingTop: Spacing.md,
+  },
+  languageOption: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.xs,
+    marginBottom: Spacing.xs,
   },
   dangerButton: {
     flexDirection: "row",
