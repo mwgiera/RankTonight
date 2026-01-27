@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -25,14 +25,13 @@ import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing, Colors } from "@/constants/theme";
 import {
-  calculateRankings,
   getPlatformDisplayName,
   getPlatformColor,
   getZoneById,
   ZONES,
-  type RankingResult,
 } from "@/lib/ranking-model";
-import { getSelectedZone, setSelectedZone } from "@/lib/storage";
+import { getSelectedZone, setSelectedZone, getEarningsLogs, getScoringMode } from "@/lib/storage";
+import { calculateDualRanking, type DualRankingResult, type ScoringMode } from "@/lib/dual-scorer";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useLanguage } from "@/lib/language-context";
 import { getTimeRegimeLabelTranslated, getDayModeLabelTranslated } from "@/lib/translations";
@@ -46,20 +45,28 @@ export default function NowScreen() {
   const { language, t } = useLanguage();
 
   const [selectedZoneId, setSelectedZoneId] = useState("downtown");
-  const [ranking, setRanking] = useState<RankingResult | null>(null);
+  const [ranking, setRanking] = useState<DualRankingResult | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showZonePicker, setShowZonePicker] = useState(false);
+  const [scoringMode, setScoringModeState] = useState<ScoringMode>("DEMO");
 
   const pulseScale = useSharedValue(1);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   useEffect(() => {
+    calculateAndSetRanking();
+  }, [selectedZoneId, scoringMode]);
+
+  const calculateAndSetRanking = async () => {
     const zone = getZoneById(selectedZoneId);
     if (zone) {
-      const result = calculateRankings(zone.category);
+      const logs = await getEarningsLogs();
+      const result = calculateDualRanking(scoringMode, logs, selectedZoneId, zone.category);
       setRanking(result);
 
       if (result.confidence === "Strong") {
@@ -75,11 +82,13 @@ export default function NowScreen() {
         pulseScale.value = 1;
       }
     }
-  }, [selectedZoneId]);
+  };
 
   const loadData = async () => {
     const zoneId = await getSelectedZone();
+    const mode = await getScoringMode();
     setSelectedZoneId(zoneId);
+    setScoringModeState(mode);
   };
 
   const onRefresh = useCallback(async () => {
@@ -231,6 +240,26 @@ export default function NowScreen() {
             pulseStyle,
           ]}
         >
+          <View style={[styles.modeIndicator, { backgroundColor: ranking.mode === "PERSONAL" ? Colors.dark.success + "20" : Colors.dark.primary + "20" }]}>
+            <Feather 
+              name={ranking.mode === "PERSONAL" ? "user" : "activity"} 
+              size={12} 
+              color={ranking.mode === "PERSONAL" ? Colors.dark.success : Colors.dark.primary} 
+            />
+            <ThemedText type="caption" style={{ 
+              color: ranking.mode === "PERSONAL" ? Colors.dark.success : Colors.dark.primary,
+              marginLeft: Spacing.xs,
+              fontWeight: "500",
+            }}>
+              {ranking.mode === "PERSONAL" ? t.now.profitability : t.now.opportunityScore}
+            </ThemedText>
+            {ranking.mode === "DEMO" && ranking.currentRecordCount > 0 ? (
+              <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                ({ranking.currentRecordCount}/{ranking.minRecordsRequired} {t.now.needMoreRecords.split(" ")[0]})
+              </ThemedText>
+            ) : null}
+          </View>
+
           <View style={styles.contextConfidenceRow}>
             <View style={styles.contextSummary}>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
@@ -439,4 +468,12 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   platformName: {},
+  modeIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.md,
+  },
 });
