@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, RefreshControl, ScrollView } from "react-native";
+import { View, StyleSheet, FlatList, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -82,12 +82,7 @@ export default function ZonesScreen() {
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         ListHeaderComponent={
           <View style={styles.filterContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipsContainer}
-              style={styles.chipsList}
-            >
+            <View style={styles.chipsContainer}>
               {categories.map((item) => (
                 <CategoryChip
                   key={item}
@@ -96,7 +91,7 @@ export default function ZonesScreen() {
                   onPress={() => handleCategorySelect(item)}
                 />
               ))}
-            </ScrollView>
+            </View>
           </View>
         }
         refreshControl={
@@ -128,11 +123,8 @@ const styles = StyleSheet.create({
   chipsContainer: {
     paddingVertical: Spacing.sm,
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.sm,
-    paddingRight: Spacing.xl,
-  },
-  chipsList: {
-    overflow: "visible",
   },
   emptyContainer: {
     alignItems: "center",
