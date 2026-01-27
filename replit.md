@@ -20,14 +20,38 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: StyleSheet-based with a centralized theme system in `client/constants/theme.ts`
 
 ### App Structure
-- **4-tab navigation**: Now (recommendations), Zones (zone insights), Log (earnings input), Profile (settings)
+- **5-tab navigation**: Now (recommendations), Zones (zone insights), Log (earnings input), Receipts (receipt parsing), Profile (settings)
 - **No authentication required**: Single-user utility app with local storage for preferences
 - **Dark theme only**: Dashboard aesthetic with deep navy-black backgrounds
+- **Full i18n support**: German, English, and Polish translations
+
+### Dual-Mode Scoring System
+The app supports two scoring modes controlled via Profile settings:
+
+**DEMO Mode (default)**
+- Uses Krakow market benchmarks (Uber PLN 55-62/hr, Bolt PLN 40-50/hr, FreeNow PLN 42-52/hr)
+- Shows "Opportunity Score" based on demand/friction priors
+- Active until user has minimum 5 logged records
+
+**PERSONAL Mode**
+- Requires minimum 5 earnings records for the selected zone
+- Uses driver's logged earnings history with 30-day time-decay weighting
+- Shows "Profitability" based on actual rev/hour (or per-trip if duration missing)
+- Falls back to DEMO mode if insufficient data
+
+### Receipt Parser
+The app can parse trip receipts from email text:
+- Supports Uber, Bolt, and FreeNow receipt formats
+- Auto-detects platform from email content
+- Extracts: date/time, amount, duration (when available)
+- Shows parse confidence (high/medium/low)
+- Allows import to earnings log
 
 ### Ranking Model
-The core logic lives in `client/lib/ranking-model.ts` and uses a scoring formula:
+The core logic lives in `client/lib/ranking-model.ts` and the dual-mode scorer in `client/lib/dual-scorer.ts`:
 ```
-Score = Demand - Friction + Incentives + Reliability
+Demo Score = Base Rev/Hour × Zone Affinity × Time Multiplier × Congestion Factor
+Personal Score = Time-Decayed Avg Rev/Hour (or Earnings/Trip if duration missing)
 ```
 - Considers time of day (time regimes: morning-rush, midday, late-night, etc.)
 - Considers day type (weekday vs weekend)
@@ -40,9 +64,10 @@ Score = Demand - Friction + Incentives + Reliability
 - **Storage**: In-memory storage by default (`server/storage.ts`), with Drizzle ORM schema ready for PostgreSQL
 
 ### Data Layer
-- **Client Storage**: AsyncStorage for earnings logs, selected zone, and user preferences
+- **Client Storage**: AsyncStorage for earnings logs, selected zone, user preferences, scoring mode, and parsed receipts
 - **Server Storage**: Currently uses in-memory storage; PostgreSQL schema defined but not yet connected
 - **Schema**: Drizzle ORM with PostgreSQL dialect (`shared/schema.ts`)
+- **CSV Export**: Full trip history can be exported as CSV via the Receipts tab
 
 ### Build System
 - Development: Expo dev server with Metro bundler
