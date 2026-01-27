@@ -172,12 +172,18 @@ function configureExpoAndLanding(app: express.Application) {
 
   log("Serving static Expo files with dynamic manifest routing");
 
+  // Serve the static web build
+  const distWebPath = path.resolve(process.cwd(), "dist-web");
+  const hasWebBuild = fs.existsSync(distWebPath);
+  
+  if (hasWebBuild) {
+    log("Serving static web build from dist-web");
+    app.use("/_expo", express.static(path.join(distWebPath, "_expo")));
+    app.use("/assets", express.static(path.join(distWebPath, "assets")));
+  }
+
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) {
-      return next();
-    }
-
-    if (req.path !== "/" && req.path !== "/manifest") {
       return next();
     }
 
@@ -186,29 +192,23 @@ function configureExpoAndLanding(app: express.Application) {
       return serveExpoManifest(platform, res);
     }
 
-    if (req.path === "/" || req.path === "/manifest") {
+    // Serve web build for browser requests
+    if (hasWebBuild && req.path === "/") {
       const userAgent = req.header("user-agent") || "";
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent);
+      const isExpoClient = userAgent.includes("Expo") || req.header("expo-platform");
       
-      if (isMobile) {
-        return serveLandingPage({
-          req,
-          res,
-          landingPageTemplate,
-          appName,
-        });
-      } else {
-        const devDomain = process.env.REPLIT_DEV_DOMAIN;
-        if (devDomain) {
-          return res.redirect(`https://${devDomain}:8081`);
-        }
-        return serveLandingPage({
-          req,
-          res,
-          landingPageTemplate,
-          appName,
-        });
+      if (!isExpoClient) {
+        return res.sendFile(path.join(distWebPath, "index.html"));
       }
+    }
+
+    if (req.path === "/" || req.path === "/manifest") {
+      return serveLandingPage({
+        req,
+        res,
+        landingPageTemplate,
+        appName,
+      });
     }
 
     next();
@@ -216,6 +216,16 @@ function configureExpoAndLanding(app: express.Application) {
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
+  
+  // Fallback to web build index.html for SPA routing
+  if (hasWebBuild) {
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (!req.path.startsWith("/api") && !req.path.includes(".")) {
+        return res.sendFile(path.join(distWebPath, "index.html"));
+      }
+      next();
+    });
+  }
 
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
