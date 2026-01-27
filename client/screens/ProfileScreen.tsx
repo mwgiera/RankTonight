@@ -17,10 +17,14 @@ import {
   getUserPreferences,
   saveUserPreferences,
   clearAllData,
+  getScoringMode,
+  setScoringMode,
+  getEarningsLogs,
   type UserPreferences,
 } from "@/lib/storage";
 import { useLanguage } from "@/lib/language-context";
 import { LANGUAGES, type Language } from "@/lib/translations";
+import type { ScoringMode } from "@/lib/dual-scorer";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -31,16 +35,36 @@ export default function ProfileScreen() {
 
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [scoringMode, setScoringModeState] = useState<ScoringMode>("DEMO");
+  const [recordCount, setRecordCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       loadPrefs();
+      loadScoringMode();
+      loadRecordCount();
     }, [])
   );
 
   const loadPrefs = async () => {
     const data = await getUserPreferences();
     setPrefs(data);
+  };
+
+  const loadScoringMode = async () => {
+    const mode = await getScoringMode();
+    setScoringModeState(mode);
+  };
+
+  const loadRecordCount = async () => {
+    const logs = await getEarningsLogs();
+    setRecordCount(logs.length);
+  };
+
+  const handleModeChange = async (mode: ScoringMode) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setScoringModeState(mode);
+    await setScoringMode(mode);
   };
 
   const handleTemperatureChange = async (value: number) => {
@@ -132,6 +156,61 @@ export default function ProfileScreen() {
 
           <View
             style={[styles.settingCard, { backgroundColor: theme.backgroundDefault }]}
+          >
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Feather name="cpu" size={20} color={theme.text} />
+                <ThemedText type="body" style={{ marginLeft: Spacing.md }}>
+                  {t.profile.scoringMode}
+                </ThemedText>
+              </View>
+            </View>
+            <View style={styles.modeToggle}>
+              <Pressable
+                style={[
+                  styles.modeOption,
+                  scoringMode === "DEMO" && { backgroundColor: Colors.dark.primary + "30" },
+                ]}
+                onPress={() => handleModeChange("DEMO")}
+              >
+                <ThemedText
+                  type="body"
+                  style={{
+                    color: scoringMode === "DEMO" ? Colors.dark.primary : theme.text,
+                    fontWeight: scoringMode === "DEMO" ? "600" : "400",
+                  }}
+                >
+                  {t.profile.demoMode}
+                </ThemedText>
+                <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: 2 }}>
+                  {t.profile.demoModeDesc}
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.modeOption,
+                  scoringMode === "PERSONAL" && { backgroundColor: Colors.dark.success + "30" },
+                ]}
+                onPress={() => handleModeChange("PERSONAL")}
+              >
+                <ThemedText
+                  type="body"
+                  style={{
+                    color: scoringMode === "PERSONAL" ? Colors.dark.success : theme.text,
+                    fontWeight: scoringMode === "PERSONAL" ? "600" : "400",
+                  }}
+                >
+                  {t.profile.personalMode}
+                </ThemedText>
+                <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: 2 }}>
+                  {t.profile.personalModeDesc} ({recordCount} records)
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+
+          <View
+            style={[styles.settingCard, { backgroundColor: theme.backgroundDefault, marginTop: Spacing.md }]}
           >
             <Pressable
               style={styles.settingRow}
@@ -394,5 +473,15 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     marginTop: Spacing["2xl"],
+  },
+  modeToggle: {
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  modeOption: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
 });

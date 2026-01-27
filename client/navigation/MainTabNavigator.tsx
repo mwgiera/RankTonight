@@ -6,6 +6,7 @@ import { Platform, StyleSheet } from "react-native";
 import NowStackNavigator from "@/navigation/NowStackNavigator";
 import ZonesStackNavigator from "@/navigation/ZonesStackNavigator";
 import LogStackNavigator from "@/navigation/LogStackNavigator";
+import ReceiptsStackNavigator from "@/navigation/ReceiptsStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
 import { Colors } from "@/constants/theme";
@@ -15,6 +16,7 @@ export type MainTabParamList = {
   NowTab: undefined;
   ZonesTab: undefined;
   LogTab: undefined;
+  ReceiptsTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -77,6 +79,16 @@ export default function MainTabNavigator() {
           title: t.tabs.log,
           tabBarIcon: ({ color, size }) => (
             <Feather name="edit-3" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="ReceiptsTab"
+        component={ReceiptsStackNavigator}
+        options={{
+          title: t.tabs.receipts,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="file-text" size={size} color={color} />
           ),
         }}
       />

@@ -12,6 +12,7 @@ type TranslationKeys = {
     zones: string;
     log: string;
     profile: string;
+    receipts: string;
   };
   now: {
     title: string;
@@ -32,6 +33,12 @@ type TranslationKeys = {
     changeZone: string;
     scoreBreakdown: string;
     selectZone: string;
+    opportunityScore: string;
+    profitability: string;
+    proxyModeLabel: string;
+    personalModeLabel: string;
+    noDataYet: string;
+    needMoreRecords: string;
   };
   zones: {
     title: string;
@@ -81,6 +88,33 @@ type TranslationKeys = {
     designedBy: string;
     developedBy: string;
     license: string;
+    scoringMode: string;
+    demoMode: string;
+    personalMode: string;
+    demoModeDesc: string;
+    personalModeDesc: string;
+  };
+  receipts: {
+    title: string;
+    pasteReceipt: string;
+    selectPlatform: string;
+    parseReceipt: string;
+    parsedPreview: string;
+    date: string;
+    time: string;
+    amount: string;
+    duration: string;
+    unknown: string;
+    revPerHour: string;
+    saveToLog: string;
+    editFields: string;
+    parseError: string;
+    noReceiptText: string;
+    exportCsv: string;
+    parsedReceipts: string;
+    importToLog: string;
+    perTrip: string;
+    durationMissing: string;
   };
   context: {
     weekendMode: string;
@@ -109,6 +143,7 @@ const translations: Record<Language, TranslationKeys> = {
       zones: "Zones",
       log: "Log",
       profile: "Profile",
+      receipts: "Receipts",
     },
     now: {
       title: "DriveRadar",
@@ -129,6 +164,12 @@ const translations: Record<Language, TranslationKeys> = {
       changeZone: "Change Zone",
       scoreBreakdown: "Score Breakdown",
       selectZone: "Select Zone",
+      opportunityScore: "Opportunity Score",
+      profitability: "Profitability",
+      proxyModeLabel: "Proxy model (demand/friction priors). Not based on earnings history.",
+      personalModeLabel: "Based on your logged earnings",
+      noDataYet: "No data yet",
+      needMoreRecords: "Need more records for personal mode",
     },
     zones: {
       title: "Zones",
@@ -178,6 +219,33 @@ const translations: Record<Language, TranslationKeys> = {
       designedBy: "Designed by",
       developedBy: "Developed by",
       license: "All rights reserved | MIT License",
+      scoringMode: "Scoring Mode",
+      demoMode: "Demo Mode",
+      personalMode: "Personal Mode",
+      demoModeDesc: "Uses market benchmarks and priors",
+      personalModeDesc: "Uses your logged earnings data",
+    },
+    receipts: {
+      title: "Receipts",
+      pasteReceipt: "Paste Receipt Text",
+      selectPlatform: "Select Platform",
+      parseReceipt: "Parse Receipt",
+      parsedPreview: "Parsed Preview",
+      date: "Date",
+      time: "Time",
+      amount: "Amount",
+      duration: "Duration",
+      unknown: "Unknown",
+      revPerHour: "Rev/Hour",
+      saveToLog: "Save to Log",
+      editFields: "Edit Fields",
+      parseError: "Could not parse receipt",
+      noReceiptText: "Paste receipt text to parse",
+      exportCsv: "Export CSV",
+      parsedReceipts: "Parsed Receipts",
+      importToLog: "Import to Log",
+      perTrip: "per trip",
+      durationMissing: "duration missing",
     },
     context: {
       weekendMode: "Weekend Mode",
@@ -204,6 +272,7 @@ const translations: Record<Language, TranslationKeys> = {
       zones: "Zonen",
       log: "Protokoll",
       profile: "Profil",
+      receipts: "Quittungen",
     },
     now: {
       title: "DriveRadar",
@@ -224,6 +293,12 @@ const translations: Record<Language, TranslationKeys> = {
       changeZone: "Zone wechseln",
       scoreBreakdown: "Punkteaufschlüsselung",
       selectZone: "Zone auswählen",
+      opportunityScore: "Chancen-Score",
+      profitability: "Rentabilität",
+      proxyModeLabel: "Proxy-Modell (Nachfrage/Reibungs-Priors). Nicht auf Einnahmenhistorie basiert.",
+      personalModeLabel: "Basierend auf Ihren protokollierten Einnahmen",
+      noDataYet: "Noch keine Daten",
+      needMoreRecords: "Mehr Einträge für persönlichen Modus erforderlich",
     },
     zones: {
       title: "Zonen",
@@ -273,6 +348,33 @@ const translations: Record<Language, TranslationKeys> = {
       designedBy: "Design von",
       developedBy: "Entwickelt von",
       license: "Alle Rechte vorbehalten | MIT-Lizenz",
+      scoringMode: "Bewertungsmodus",
+      demoMode: "Demo-Modus",
+      personalMode: "Persönlicher Modus",
+      demoModeDesc: "Verwendet Markt-Benchmarks und Priors",
+      personalModeDesc: "Verwendet Ihre protokollierten Einnahmen",
+    },
+    receipts: {
+      title: "Quittungen",
+      pasteReceipt: "Quittungstext einfügen",
+      selectPlatform: "Plattform auswählen",
+      parseReceipt: "Quittung analysieren",
+      parsedPreview: "Analysierte Vorschau",
+      date: "Datum",
+      time: "Zeit",
+      amount: "Betrag",
+      duration: "Dauer",
+      unknown: "Unbekannt",
+      revPerHour: "Einnahmen/Stunde",
+      saveToLog: "Im Protokoll speichern",
+      editFields: "Felder bearbeiten",
+      parseError: "Quittung konnte nicht analysiert werden",
+      noReceiptText: "Quittungstext zum Analysieren einfügen",
+      exportCsv: "CSV exportieren",
+      parsedReceipts: "Analysierte Quittungen",
+      importToLog: "Ins Protokoll importieren",
+      perTrip: "pro Fahrt",
+      durationMissing: "Dauer fehlt",
     },
     context: {
       weekendMode: "Wochenend-Modus",
@@ -299,6 +401,7 @@ const translations: Record<Language, TranslationKeys> = {
       zones: "Strefy",
       log: "Dziennik",
       profile: "Profil",
+      receipts: "Paragony",
     },
     now: {
       title: "DriveRadar",
@@ -319,6 +422,12 @@ const translations: Record<Language, TranslationKeys> = {
       changeZone: "Zmień strefę",
       scoreBreakdown: "Rozkład punktów",
       selectZone: "Wybierz strefę",
+      opportunityScore: "Wynik szansy",
+      profitability: "Rentowność",
+      proxyModeLabel: "Model proxy (priorytety popytu/oporu). Nie oparte na historii zarobków.",
+      personalModeLabel: "Na podstawie Twoich zalogowanych zarobków",
+      noDataYet: "Brak danych",
+      needMoreRecords: "Potrzeba więcej wpisów dla trybu osobistego",
     },
     zones: {
       title: "Strefy",
@@ -368,6 +477,33 @@ const translations: Record<Language, TranslationKeys> = {
       designedBy: "Projekt",
       developedBy: "Rozwój",
       license: "Wszelkie prawa zastrzeżone | Licencja MIT",
+      scoringMode: "Tryb oceny",
+      demoMode: "Tryb demo",
+      personalMode: "Tryb osobisty",
+      demoModeDesc: "Używa benchmarków rynkowych i priorów",
+      personalModeDesc: "Używa Twoich zalogowanych zarobków",
+    },
+    receipts: {
+      title: "Paragony",
+      pasteReceipt: "Wklej tekst paragonu",
+      selectPlatform: "Wybierz platformę",
+      parseReceipt: "Analizuj paragon",
+      parsedPreview: "Analizowany podgląd",
+      date: "Data",
+      time: "Czas",
+      amount: "Kwota",
+      duration: "Czas trwania",
+      unknown: "Nieznany",
+      revPerHour: "Przychód/godz.",
+      saveToLog: "Zapisz do dziennika",
+      editFields: "Edytuj pola",
+      parseError: "Nie można przeanalizować paragonu",
+      noReceiptText: "Wklej tekst paragonu do analizy",
+      exportCsv: "Eksportuj CSV",
+      parsedReceipts: "Przeanalizowane paragony",
+      importToLog: "Importuj do dziennika",
+      perTrip: "na przejazd",
+      durationMissing: "brak czasu trwania",
     },
     context: {
       weekendMode: "Tryb weekendowy",
