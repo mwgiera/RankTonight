@@ -186,13 +186,29 @@ function configureExpoAndLanding(app: express.Application) {
       return serveExpoManifest(platform, res);
     }
 
-    if (req.path === "/") {
-      return serveLandingPage({
-        req,
-        res,
-        landingPageTemplate,
-        appName,
-      });
+    if (req.path === "/" || req.path === "/manifest") {
+      const userAgent = req.header("user-agent") || "";
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent);
+      
+      if (isMobile) {
+        return serveLandingPage({
+          req,
+          res,
+          landingPageTemplate,
+          appName,
+        });
+      } else {
+        const devDomain = process.env.REPLIT_DEV_DOMAIN;
+        if (devDomain) {
+          return res.redirect(`https://${devDomain}:8081`);
+        }
+        return serveLandingPage({
+          req,
+          res,
+          landingPageTemplate,
+          appName,
+        });
+      }
     }
 
     next();
