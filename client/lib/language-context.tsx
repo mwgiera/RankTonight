@@ -23,7 +23,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const loadLanguage = async () => {
     try {
       const stored = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
-      if (stored && (stored === "en" || stored === "de" || stored === "pl")) {
+      if (stored && (stored === "en" || stored === "de" || stored === "pl" || stored === "uk")) {
         setLanguageState(stored as Language);
       }
     } catch (error) {
