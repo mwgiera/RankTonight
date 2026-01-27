@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from "react-native";
+import { View, StyleSheet, ScrollView, RefreshControl, Pressable, Platform as RNPlatform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -7,6 +7,7 @@ import { Feather } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -29,6 +30,7 @@ import {
   getPlatformColor,
   getZoneById,
   ZONES,
+  findNearestZone,
 } from "@/lib/ranking-model";
 import { getSelectedZone, setSelectedZone, getEarningsLogs, getScoringMode } from "@/lib/storage";
 import { calculateDualRanking, type DualRankingResult, type ScoringMode } from "@/lib/dual-scorer";
@@ -48,15 +50,45 @@ export default function NowScreen() {
   const [ranking, setRanking] = useState<DualRankingResult | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showZonePicker, setShowZonePicker] = useState(false);
-  const [scoringMode, setScoringModeState] = useState<ScoringMode>("DEMO");
+  const [scoringMode, setScoringModeState] = useState<ScoringMode>("PILOT");
+  const [locationPermission, setLocationPermission] = useState<boolean | null>(null);
 
   const pulseScale = useSharedValue(1);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
+      detectLocationZone();
     }, [])
   );
+
+  const detectLocationZone = async () => {
+    if (RNPlatform.OS === "web") return;
+    
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationPermission(status === "granted");
+      
+      if (status === "granted") {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        
+        const nearestZone = findNearestZone(
+          location.coords.latitude,
+          location.coords.longitude
+        );
+        
+        const savedZone = await getSelectedZone();
+        if (savedZone === "downtown") {
+          setSelectedZoneId(nearestZone.id);
+          await setSelectedZone(nearestZone.id);
+        }
+      }
+    } catch (error) {
+      console.log("Location detection failed:", error);
+    }
+  };
 
   useEffect(() => {
     calculateAndSetRanking();
@@ -260,7 +292,7 @@ export default function NowScreen() {
             }}>
               {ranking.mode === "PERSONAL" ? t.now.profitability : t.now.opportunityScore}
             </ThemedText>
-            {ranking.mode === "DEMO" && ranking.currentRecordCount > 0 ? (
+            {ranking.mode === "PILOT" && ranking.currentRecordCount > 0 ? (
               <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
                 ({ranking.currentRecordCount}/{ranking.minRecordsRequired} {t.now.needMoreRecords.split(" ")[0]})
               </ThemedText>

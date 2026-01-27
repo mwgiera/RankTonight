@@ -34,6 +34,9 @@ export interface Zone {
   name: string;
   category: ZoneCategory;
   behaviorBias: string;
+  lat: number;
+  lng: number;
+  radius: number;
 }
 
 export interface EarningsLog {
@@ -335,15 +338,41 @@ export function calculateRankings(
 }
 
 export const ZONES: Zone[] = [
-  { id: "airport", name: "Airport", category: "airport", behaviorBias: "transit-heavy" },
-  { id: "downtown", name: "Downtown", category: "center", behaviorBias: "daytime bias" },
-  { id: "central-station", name: "Central Station", category: "center", behaviorBias: "transit-heavy" },
-  { id: "nightlife-district", name: "Nightlife District", category: "center", behaviorBias: "late-night bias" },
-  { id: "business-park", name: "Business Park", category: "center", behaviorBias: "weekday bias" },
-  { id: "north-suburbs", name: "North Suburbs", category: "residential", behaviorBias: "commuter hours" },
-  { id: "south-suburbs", name: "South Suburbs", category: "residential", behaviorBias: "commuter hours" },
-  { id: "west-side", name: "West Side", category: "residential", behaviorBias: "commuter hours" },
+  { id: "airport", name: "Airport", category: "airport", behaviorBias: "transit-heavy", lat: 50.0777, lng: 19.7848, radius: 3 },
+  { id: "downtown", name: "Downtown", category: "center", behaviorBias: "daytime bias", lat: 50.0614, lng: 19.9372, radius: 1.5 },
+  { id: "central-station", name: "Central Station", category: "center", behaviorBias: "transit-heavy", lat: 50.0678, lng: 19.9470, radius: 0.8 },
+  { id: "nightlife-district", name: "Nightlife District", category: "center", behaviorBias: "late-night bias", lat: 50.0520, lng: 19.9350, radius: 1 },
+  { id: "business-park", name: "Business Park", category: "center", behaviorBias: "weekday bias", lat: 50.0800, lng: 19.9900, radius: 2 },
+  { id: "north-suburbs", name: "North Suburbs", category: "residential", behaviorBias: "commuter hours", lat: 50.1100, lng: 19.9500, radius: 4 },
+  { id: "south-suburbs", name: "South Suburbs", category: "residential", behaviorBias: "commuter hours", lat: 50.0200, lng: 19.9400, radius: 4 },
+  { id: "west-side", name: "West Side", category: "residential", behaviorBias: "commuter hours", lat: 50.0600, lng: 19.8700, radius: 3 },
 ];
+
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+export function findNearestZone(lat: number, lng: number): Zone {
+  let nearestZone = ZONES[1];
+  let minDistance = Infinity;
+  
+  for (const zone of ZONES) {
+    const distance = haversineDistance(lat, lng, zone.lat, zone.lng);
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearestZone = zone;
+    }
+  }
+  
+  return nearestZone;
+}
 
 export function getZoneById(id: string): Zone | undefined {
   return ZONES.find(z => z.id === id);

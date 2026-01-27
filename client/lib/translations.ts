@@ -89,9 +89,9 @@ type TranslationKeys = {
     developedBy: string;
     license: string;
     scoringMode: string;
-    demoMode: string;
+    pilotMode: string;
     personalMode: string;
-    demoModeDesc: string;
+    pilotModeDesc: string;
     personalModeDesc: string;
   };
   receipts: {
@@ -220,9 +220,9 @@ const translations: Record<Language, TranslationKeys> = {
       developedBy: "Developed by",
       license: "All rights reserved | MIT License",
       scoringMode: "Scoring Mode",
-      demoMode: "Demo Mode",
+      pilotMode: "Pilot Mode",
       personalMode: "Personal Mode",
-      demoModeDesc: "Uses market benchmarks and priors",
+      pilotModeDesc: "Uses market benchmarks until you log 5+ trips",
       personalModeDesc: "Uses your logged earnings data",
     },
     receipts: {
@@ -349,9 +349,9 @@ const translations: Record<Language, TranslationKeys> = {
       developedBy: "Entwickelt von",
       license: "Alle Rechte vorbehalten | MIT-Lizenz",
       scoringMode: "Bewertungsmodus",
-      demoMode: "Demo-Modus",
+      pilotMode: "Pilot-Modus",
       personalMode: "Persönlicher Modus",
-      demoModeDesc: "Verwendet Markt-Benchmarks und Priors",
+      pilotModeDesc: "Verwendet Markt-Benchmarks bis 5+ Fahrten protokolliert",
       personalModeDesc: "Verwendet Ihre protokollierten Einnahmen",
     },
     receipts: {
@@ -478,9 +478,9 @@ const translations: Record<Language, TranslationKeys> = {
       developedBy: "Rozwój",
       license: "Wszelkie prawa zastrzeżone | Licencja MIT",
       scoringMode: "Tryb oceny",
-      demoMode: "Tryb demo",
+      pilotMode: "Tryb pilotażowy",
       personalMode: "Tryb osobisty",
-      demoModeDesc: "Używa benchmarków rynkowych i priorów",
+      pilotModeDesc: "Używa benchmarków rynkowych do 5+ przejazdów",
       personalModeDesc: "Używa Twoich zalogowanych zarobków",
     },
     receipts: {

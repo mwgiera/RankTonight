@@ -11,7 +11,7 @@ import type {
 } from "./ranking-model";
 import { getContextMode, getAllPlatforms, ZONES, calculateRankings } from "./ranking-model";
 
-export type ScoringMode = "DEMO" | "PERSONAL";
+export type ScoringMode = "PILOT" | "PERSONAL";
 
 export interface PersonalStats {
   platform: Platform;
@@ -148,8 +148,8 @@ export function scoreDemo(
     confidence: baseRanking.confidence,
     confidenceValue: baseRanking.confidenceValue,
     context: baseRanking.context,
-    mode: "DEMO",
-    modeLabel: "Proxy model (demand/friction priors). Not based on earnings history.",
+    mode: "PILOT",
+    modeLabel: "Pilot mode using market benchmarks. Log earnings to unlock Personal mode.",
     dataSource: "Krakow market benchmarks",
     minRecordsRequired: MIN_RECORDS_FOR_PERSONAL,
     currentRecordCount: 0,

@@ -24,7 +24,7 @@ const DEFAULT_PREFS: UserPreferences = {
   preferredZones: [],
   notificationsEnabled: false,
   temperature: 1.0,
-  scoringMode: "DEMO",
+  scoringMode: "PILOT",
 };
 
 export async function getEarningsLogs(): Promise<EarningsLog[]> {
@@ -117,9 +117,10 @@ export async function clearAllData(): Promise<void> {
 export async function getScoringMode(): Promise<ScoringMode> {
   try {
     const mode = await AsyncStorage.getItem(SCORING_MODE_KEY);
-    return (mode as ScoringMode) || "DEMO";
+    if (mode === "DEMO") return "PILOT";
+    return (mode as ScoringMode) || "PILOT";
   } catch {
-    return "DEMO";
+    return "PILOT";
   }
 }
 

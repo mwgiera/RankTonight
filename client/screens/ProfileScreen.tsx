@@ -35,7 +35,7 @@ export default function ProfileScreen() {
 
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
-  const [scoringMode, setScoringModeState] = useState<ScoringMode>("DEMO");
+  const [scoringMode, setScoringModeState] = useState<ScoringMode>("PILOT");
   const [recordCount, setRecordCount] = useState(0);
 
   useFocusEffect(
@@ -169,21 +169,21 @@ export default function ProfileScreen() {
               <Pressable
                 style={[
                   styles.modeOption,
-                  scoringMode === "DEMO" && { backgroundColor: Colors.dark.primary + "30" },
+                  scoringMode === "PILOT" && { backgroundColor: Colors.dark.primary + "30" },
                 ]}
-                onPress={() => handleModeChange("DEMO")}
+                onPress={() => handleModeChange("PILOT")}
               >
                 <ThemedText
                   type="body"
                   style={{
-                    color: scoringMode === "DEMO" ? Colors.dark.primary : theme.text,
-                    fontWeight: scoringMode === "DEMO" ? "600" : "400",
+                    color: scoringMode === "PILOT" ? Colors.dark.primary : theme.text,
+                    fontWeight: scoringMode === "PILOT" ? "600" : "400",
                   }}
                 >
-                  {t.profile.demoMode}
+                  {t.profile.pilotMode}
                 </ThemedText>
                 <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: 2 }}>
-                  {t.profile.demoModeDesc}
+                  {t.profile.pilotModeDesc}
                 </ThemedText>
               </Pressable>
               <Pressable
