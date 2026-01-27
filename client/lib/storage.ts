@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { EarningsLog } from "./ranking-model";
+import { ingestEarningsLog } from "./ranking-model";
 import type { ScoringMode } from "./dual-scorer";
 import type { ParsedReceipt } from "./receipt-parser";
 
@@ -44,6 +45,12 @@ export async function saveEarningsLog(log: EarningsLog): Promise<void> {
     const logs = await getEarningsLogs();
     logs.unshift(log);
     await AsyncStorage.setItem(EARNINGS_KEY, JSON.stringify(logs));
+
+    const res = await ingestEarningsLog(log);
+    if (!res.ok) {
+      console.warn("EMA ingest skipped:", res.reason);
+    }
+    console.log("EMA updated for:", log.platform, log.zone, new Date(log.timestamp).toISOString());
   } catch (error) {
     console.error("Failed to save earnings log:", error);
   }

@@ -389,3 +389,80 @@ export function getFrictionLevel(value: number): "High" | "Medium" | "Low" {
   if (value >= 0.3) return "Medium";
   return "Low";
 }
+
+type EmaKey = `${Platform}:${string}:${DayMode}:${TimeRegime}`;
+
+interface EmaEntry {
+  ema: number;
+  count: number;
+  lastUpdated: number;
+}
+
+type EmaStore = Record<EmaKey, EmaEntry>;
+
+const EMA_STORAGE_KEY = "profitDriver:ema:v1";
+const EMA_ALPHA = 0.3;
+
+function safeParseJson<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+async function loadEmaStore(): Promise<EmaStore> {
+  const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+  const raw = await AsyncStorage.getItem(EMA_STORAGE_KEY);
+  return safeParseJson<EmaStore>(raw, {});
+}
+
+async function saveEmaStore(store: EmaStore): Promise<void> {
+  const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+  await AsyncStorage.setItem(EMA_STORAGE_KEY, JSON.stringify(store));
+}
+
+export async function ingestEarningsLog(log: EarningsLog): Promise<{ ok: boolean; reason?: string }> {
+  const minutes = log.duration ?? 0;
+  if (minutes <= 0) {
+    return { ok: false, reason: "duration missing or zero" };
+  }
+
+  const revPerHour = (log.amount / minutes) * 60;
+  const date = new Date(log.timestamp);
+  const ctx = getContextMode(date);
+
+  const key: EmaKey = `${log.platform}:${log.zone}:${ctx.dayMode}:${ctx.timeRegime}`;
+
+  const store = await loadEmaStore();
+  const prev = store[key];
+
+  if (prev) {
+    store[key] = {
+      ema: EMA_ALPHA * revPerHour + (1 - EMA_ALPHA) * prev.ema,
+      count: prev.count + 1,
+      lastUpdated: Date.now(),
+    };
+  } else {
+    store[key] = {
+      ema: revPerHour,
+      count: 1,
+      lastUpdated: Date.now(),
+    };
+  }
+
+  await saveEmaStore(store);
+  return { ok: true };
+}
+
+export async function getEmaForContext(
+  platform: Platform,
+  zone: string,
+  dayMode: DayMode,
+  timeRegime: TimeRegime
+): Promise<EmaEntry | null> {
+  const store = await loadEmaStore();
+  const key: EmaKey = `${platform}:${zone}:${dayMode}:${timeRegime}`;
+  return store[key] ?? null;
+}

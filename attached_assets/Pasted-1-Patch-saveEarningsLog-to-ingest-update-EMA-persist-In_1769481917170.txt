@@ -1,0 +1,61 @@
+1) Patch saveEarningsLog to ingest → update EMA → persist
+In client/lib/storage.ts, add an import:
+
+import { ingestEarningsLog } from "@/lib/ranking-model";
+Now change the function to this (minimal, safe, no UI coupling):
+
+export async function saveEarningsLog(log: EarningsLog): Promise<void> {
+  try {
+    // 1) persist the raw log (source of truth)
+    const logs = await getEarningsLogs();
+    logs.unshift(log);
+    await AsyncStorage.setItem(EARNINGS_KEY, JSON.stringify(logs));
+
+    // 2) update EMA store (learning signal)
+    // Run it after persistence so a crash doesn't lose the log.
+    const res = ingestEarningsLog(log);
+
+    // Optional: keep this during development
+    if (!res.ok) {
+      console.warn("EMA ingest skipped:", res.reason);
+    }
+  } catch (error) {
+    console.error("Failed to save earnings log:", error);
+  }
+}
+That’s the entire learning-loop integration.
+
+2) One required correction: you’re on React Native, so don’t use localStorage
+Your earlier EMA code used localStorage. In React Native, you should persist EMA in AsyncStorage too.
+
+So inside ranking-model.ts (where ingestEarningsLog lives), replace the loadEmaStore/saveEmaStore implementation with AsyncStorage-backed versions:
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const EMA_STORAGE_KEY = "profitDriver:ema:v1";
+
+async function loadEmaStore(): Promise<EmaStore> {
+  const raw = await AsyncStorage.getItem(EMA_STORAGE_KEY);
+  return safeParseJson<EmaStore>(raw, {});
+}
+
+async function saveEmaStore(store: EmaStore): Promise<void> {
+  await AsyncStorage.setItem(EMA_STORAGE_KEY, JSON.stringify(store));
+}
+Then make ingestEarningsLog async:
+
+export async function ingestEarningsLog(log: EarningsLog): Promise<{ ok: boolean; reason?: string }> {
+  ...
+  const store = await loadEmaStore();
+  ...
+  await saveEmaStore(store);
+  return { ok: true };
+}
+…and in saveEarningsLog, call:
+
+await ingestEarningsLog(log);
+3) Verify it’s real (10-second proof)
+Add this temporary line in saveEarningsLog after ingest:
+
+console.log("EMA updated for:", log.platform, log.zone, new Date(log.timestamp).toISOString());
+Log one entry. If you see it, your system now learns.
