@@ -225,14 +225,14 @@ interface PlatformPriors {
 
 const platformPriors: PlatformPriors = {
   incentive: {
-    bolt: { airport: 0.1, center: 0.2, residential: 0.15 },
-    uber: { airport: 0.15, center: 0.1, residential: 0.1 },
-    freenow: { airport: 0.05, center: 0.15, residential: 0.2 },
+    bolt: { airport: 0.15, center: 0.35, residential: 0.25 },
+    uber: { airport: 0.40, center: 0.20, residential: 0.10 },
+    freenow: { airport: 0.10, center: 0.30, residential: 0.40 },
   },
   reliability: {
-    bolt: 0.1,
-    uber: 0.2,
-    freenow: 0.0,
+    bolt: 0.15,
+    uber: 0.35,
+    freenow: 0.05,
   },
 };
 

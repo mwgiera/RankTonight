@@ -1,0 +1,527 @@
+Model: score = demand − friction + incentives + reliability
+For each platform p, time block t (e.g., 30–60 min), zone z:
+
+S
+c
+o
+r
+e
+(
+p
+,
+t
+,
+z
+)
+=
+w
+1
+⋅
+D
+e
+m
+a
+n
+d
+(
+t
+,
+z
+)
+−
+w
+2
+⋅
+F
+r
+i
+c
+t
+i
+o
+n
+(
+t
+,
+z
+)
++
+w
+3
+⋅
+I
+n
+c
+e
+n
+t
+i
+v
+e
+(
+p
+,
+t
+,
+z
+)
++
+w
+4
+⋅
+R
+e
+l
+i
+a
+b
+i
+l
+i
+t
+y
+(
+p
+)
+Score(p,t,z)=w 
+1
+​
+ ⋅Demand(t,z)−w 
+2
+​
+ ⋅Friction(t,z)+w 
+3
+​
+ ⋅Incentive(p,t,z)+w 
+4
+​
+ ⋅Reliability(p)
+Then rank platforms by Score.
+
+1) Demand proxy (platform-agnostic)
+You don’t need platform data here.
+
+D
+e
+m
+a
+n
+d
+(
+t
+,
+z
+)
+=
+a
+1
+⋅
+E
+v
+e
+n
+t
+(
+t
+,
+z
+)
++
+a
+2
+⋅
+W
+e
+a
+t
+h
+e
+r
+(
+t
+,
+z
+)
++
+a
+3
+⋅
+S
+e
+a
+s
+o
+n
+a
+l
+i
+t
+y
+(
+t
+,
+z
+)
+Demand(t,z)=a 
+1
+​
+ ⋅Event(t,z)+a 
+2
+​
+ ⋅Weather(t,z)+a 
+3
+​
+ ⋅Seasonality(t,z)
+Seasonality(t,z): baseline demand by weekday/hour (you can hand-seed this from “common sense” and refine later)
+
+Weather(t,z): rain/snow boosts demand; extreme cold/heat affects too
+
+Event(t,z): airport peaks, stadium, nightlife windows
+
+Tonight placeholder: create a table of 24×7 multipliers per zone category (airport, center, residential). Crude but usable.
+
+2) Friction proxy (also platform-agnostic)
+Friction = time wasted / low velocity / congestion.
+
+F
+r
+i
+c
+t
+i
+o
+n
+(
+t
+,
+z
+)
+=
+b
+1
+⋅
+C
+o
+n
+g
+e
+s
+t
+i
+o
+n
+(
+t
+,
+z
+)
++
+b
+2
+⋅
+D
+e
+a
+d
+h
+e
+a
+d
+R
+i
+s
+k
+(
+t
+,
+z
+)
+Friction(t,z)=b 
+1
+​
+ ⋅Congestion(t,z)+b 
+2
+​
+ ⋅DeadheadRisk(t,z)
+Congestion makes trips longer and pickups slower.
+
+Deadhead risk = probability you end up empty after drop-off.
+
+Tonight placeholder: simple congestion multiplier by hour + zone.
+
+3) Incentive term (platform-specific, but you can start with priors)
+You probably don’t have real incentive data. So treat it as a prior and let it update later.
+
+I
+n
+c
+e
+n
+t
+i
+v
+e
+(
+p
+,
+t
+,
+z
+)
+=
+P
+r
+i
+o
+r
+I
+n
+c
+e
+n
+t
+i
+v
+e
+(
+p
+,
+z
+)
++
+Δ
+(
+p
+,
+t
+)
+Incentive(p,t,z)=PriorIncentive(p,z)+Δ(p,t)
+Tonight placeholder: PriorIncentive = 0 for all platforms (neutral), or a small constant if you know one platform is usually better in certain zones.
+
+4) Reliability (platform constant)
+This captures: “does this platform reliably provide trips in this zone/hour?”
+
+R
+e
+l
+i
+a
+b
+i
+l
+i
+t
+y
+(
+p
+)
+∈
+[
+−
+1
+,
++
+1
+]
+Reliability(p)∈[−1,+1]
+Tonight placeholder: set all to 0 (neutral). Add later when you have observations.
+
+Turning Score into a decision (and avoiding fake certainty)
+Compute a softmax probability:
+
+P
+(
+p
+)
+=
+e
+S
+c
+o
+r
+e
+(
+p
+)
+/
+τ
+∑
+q
+e
+S
+c
+o
+r
+e
+(
+q
+)
+/
+τ
+P(p)= 
+∑ 
+q
+​
+ e 
+Score(q)/τ
+ 
+e 
+Score(p)/τ
+ 
+​
+ 
+τ (temperature) controls how decisive you are.
+
+Lower τ = more “confident” rankings.
+
+Add confidence:
+
+C
+o
+n
+f
+i
+d
+e
+n
+c
+e
+=
+max
+⁡
+(
+P
+(
+p
+)
+)
+−
+second_max
+(
+P
+(
+p
+)
+)
+Confidence=max(P(p))−second_max(P(p))
+Show it in UI as “Strong / Medium / Weak”.
+
+Minimal update rule when you eventually get any driver input
+Even a manual “I earned X in this hour on platform P” is enough.
+
+Maintain an exponentially weighted moving average (EMA) of effective earnings rate per platform/zone/hour:
+
+E
+M
+A
+n
+e
+w
+=
+α
+⋅
+O
+b
+s
+e
+r
+v
+e
+d
+R
+a
+t
+e
++
+(
+1
+−
+α
+)
+⋅
+E
+M
+A
+o
+l
+d
+EMA 
+new
+​
+ =α⋅ObservedRate+(1−α)⋅EMA 
+old
+​
+ 
+Then add:
+
+I
+n
+c
+e
+n
+t
+i
+v
+e
+(
+p
+,
+t
+,
+z
+)
+←
+I
+n
+c
+e
+n
+t
+i
+v
+e
+(
+p
+,
+t
+,
+z
+)
++
+c
+⋅
+E
+M
+A
+(
+p
+,
+t
+,
+z
+)
+Incentive(p,t,z)←Incentive(p,t,z)+c⋅EMA(p,t,z)
+This is how you evolve from “proxy-only” into “data-driven” without rewriting the product.
+
+Implementation skeleton (pseudo-code)
+def score(platform, t, z, params):
+    demand = (
+        params.a1 * event(t,z) +
+        params.a2 * weather(t,z) +
+        params.a3 * seasonality(t,z)
+    )
+    friction = (
+        params.b1 * congestion(t,z) +
+        params.b2 * deadhead_risk(t,z)
+    )
+    incentive = prior_incentive(platform,z) + delta(platform,t,z)  # start 0
+    reliability = reliability_const(platform)  # start 0
+
+    return params.w1*demand - params.w2*friction + params.w3*incentive + params.w4*reliability
+
+def rank_platforms(platforms, t, z, params, tau=0.7):
+    scores = {p: score(p,t,z,params) for p in platforms}
+    probs = softmax(scores, tau)
+    ordered = sorted(platforms, key=lambda p: scores[p], reverse=True)
+    conf = top2_gap(probs)
+    return ordered, probs, conf
