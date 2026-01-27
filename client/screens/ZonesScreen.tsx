@@ -95,6 +95,7 @@ export default function ZonesScreen() {
                 />
               )}
               contentContainerStyle={styles.chipsContainer}
+              style={styles.chipsList}
             />
           </View>
         }
@@ -126,6 +127,11 @@ const styles = StyleSheet.create({
   },
   chipsContainer: {
     paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  chipsList: {
+    marginHorizontal: -Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
   emptyContainer: {
     alignItems: "center",

@@ -67,6 +67,5 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    marginRight: Spacing.sm,
   },
 });
