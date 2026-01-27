@@ -1,0 +1,68 @@
+this component is clean, but it currently lies in two places (units + currency) and it misses the one metric that actually matters for your PERSONAL model (rev/hour). Fix those and the UI stops undermining credibility.
+
+1) Your units are wrong
+Your EarningsLog definition earlier: duration: number; // minutes
+
+But you render:
+
+{zone?.name || log.zone} - {log.duration}h
+That’s incorrect. Convert minutes → hours (and show both if you want).
+
+2) Your currency is wrong
+You render $ and toFixed(2), but your model is PLN-oriented. Don’t hardcode $.
+
+Use Intl.NumberFormat and label PLN (or make it a setting later).
+
+3) Add rev/hour (the only number that matters)
+This is the most important UX fix: show PLN/h right in the list item. It makes the “why” of ranking obvious and gives the user immediate feedback when logging.
+
+Drop-in patch
+Replace your formatting block + the two ThemedText lines with this.
+
+  const zone = getZoneById(log.zone);
+  const date = new Date(log.timestamp);
+
+  // duration is minutes (per your model)
+  const minutes = Math.max(0, log.duration ?? 0);
+  const hours = minutes / 60;
+
+  const revPerHour = minutes > 0 ? (log.amount / minutes) * 60 : null;
+
+  const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
+
+  const money = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "PLN",
+    maximumFractionDigits: 0,
+  }).format(log.amount);
+
+  const perHour = revPerHour === null
+    ? "— PLN/h"
+    : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(revPerHour)} PLN/h`;
+
+  const durationStr =
+    minutes >= 60
+      ? `${hours.toFixed(1)}h (${Math.round(minutes)}m)`
+      : `${Math.round(minutes)}m`;
+Then update the render:
+
+<ThemedText type="small" style={{ color: theme.textSecondary }}>
+  {zone?.name || log.zone} · {durationStr}
+</ThemedText>
+And update the amount display (remove $):
+
+<ThemedText type="h3" style={{ color: theme.primary }}>
+  {money}
+</ThemedText>
+<ThemedText type="caption" style={{ color: theme.textSecondary }}>
+  {perHour} · {dateStr} {timeStr}
+</ThemedText>
+That’s it.
+
+What this accomplishes
+fixes the h vs minutes bug
+
+fixes the $ vs PLN credibility leak
+
+exposes rev/hour, which is what your PERSONAL scorer is actually using (or should be using)

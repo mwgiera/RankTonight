@@ -43,8 +43,28 @@ export function EarningsLogItem({ log, onDelete }: EarningsLogItemProps) {
   const platformColor = getPlatformColor(log.platform);
   const zone = getZoneById(log.zone);
   const date = new Date(log.timestamp);
+
+  const minutes = Math.max(0, log.duration ?? 0);
+  const hours = minutes / 60;
+  const revPerHour = minutes > 0 ? (log.amount / minutes) * 60 : null;
+
   const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
+
+  const money = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "PLN",
+    maximumFractionDigits: 0,
+  }).format(log.amount);
+
+  const perHour = revPerHour === null
+    ? "— PLN/h"
+    : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(revPerHour)} PLN/h`;
+
+  const durationStr =
+    minutes >= 60
+      ? `${hours.toFixed(1)}h (${Math.round(minutes)}m)`
+      : `${Math.round(minutes)}m`;
 
   return (
     <AnimatedPressable
@@ -61,17 +81,17 @@ export function EarningsLogItem({ log, onDelete }: EarningsLogItemProps) {
         <View style={styles.info}>
           <ThemedText type="h4">{getPlatformDisplayName(log.platform)}</ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            {zone?.name || log.zone} - {log.duration}h
+            {zone?.name || log.zone} · {durationStr}
           </ThemedText>
         </View>
       </View>
       <View style={styles.rightSection}>
         <View style={styles.amountContainer}>
           <ThemedText type="h3" style={{ color: theme.primary }}>
-            ${log.amount.toFixed(2)}
+            {money}
           </ThemedText>
           <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-            {dateStr} {timeStr}
+            {perHour} · {dateStr} {timeStr}
           </ThemedText>
         </View>
         {onDelete ? (
