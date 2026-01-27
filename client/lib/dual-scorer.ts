@@ -9,8 +9,7 @@ import type {
   ContextMode,
   EarningsLog,
 } from "./ranking-model";
-import { getContextMode, getAllPlatforms, ZONES } from "./ranking-model";
-import { getDemoData, getDemoRecordForContext, calculateDemoOpportunityScore } from "./demo-data";
+import { getContextMode, getAllPlatforms, ZONES, calculateRankings } from "./ranking-model";
 
 export type ScoringMode = "DEMO" | "PERSONAL";
 
@@ -141,56 +140,14 @@ export function scoreDemo(
   zoneCategory: ZoneCategory,
   date: Date = new Date()
 ): DualRankingResult {
-  const context = getContextMode(date);
-  const demoData = getDemoData();
-  const platforms = getAllPlatforms();
-  
-  const platformScores: PlatformScore[] = platforms.map(platform => {
-    const record = getDemoRecordForContext(
-      demoData,
-      platform,
-      zoneCategory,
-      context.dayMode,
-      context.timeRegime
-    );
-    
-    const opportunityScore = calculateDemoOpportunityScore(record);
-    
-    const demandScore = record ? record.avgRevPerHour / 60 : 0.5;
-    const frictionScore = record ? record.congestionFactor : 0.3;
-    const incentiveScore = 0.1;
-    const reliabilityScore = platform === "uber" ? 0.15 : platform === "bolt" ? 0.1 : 0.05;
-    
-    return {
-      platform,
-      score: opportunityScore,
-      probability: 0,
-      demandScore,
-      frictionScore,
-      incentiveScore,
-      reliabilityScore,
-    };
-  });
-  
-  const scores = platformScores.map(p => p.score);
-  const maxScore = Math.max(...scores);
-  const sumScores = scores.reduce((a, b) => a + b, 0) || 1;
-  
-  platformScores.forEach(p => {
-    p.probability = p.score / sumScores;
-  });
-  
-  platformScores.sort((a, b) => b.score - a.score);
-  
-  const confidenceValue = platformScores[0].probability - (platformScores[1]?.probability || 0);
-  const confidence = getConfidenceLevel(confidenceValue);
+  const baseRanking = calculateRankings(zoneCategory, date);
   
   return {
-    rankings: platformScores,
-    topPlatform: platformScores[0].platform,
-    confidence,
-    confidenceValue,
-    context,
+    rankings: baseRanking.rankings,
+    topPlatform: baseRanking.topPlatform,
+    confidence: baseRanking.confidence,
+    confidenceValue: baseRanking.confidenceValue,
+    context: baseRanking.context,
     mode: "DEMO",
     modeLabel: "Proxy model (demand/friction priors). Not based on earnings history.",
     dataSource: "Krakow market benchmarks",

@@ -62,6 +62,13 @@ export default function NowScreen() {
     calculateAndSetRanking();
   }, [selectedZoneId, scoringMode]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      calculateAndSetRanking();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [selectedZoneId, scoringMode]);
+
   const calculateAndSetRanking = async () => {
     const zone = getZoneById(selectedZoneId);
     if (zone) {
