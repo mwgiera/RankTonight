@@ -15,6 +15,7 @@ import {
   getPlatformDisplayName,
   getPlatformColor,
   getZoneById,
+  getContextMode,
 } from "@/lib/ranking-model";
 
 interface EarningsLogItemProps {
@@ -43,10 +44,14 @@ export function EarningsLogItem({ log, onDelete }: EarningsLogItemProps) {
   const platformColor = getPlatformColor(log.platform);
   const zone = getZoneById(log.zone);
   const date = new Date(log.timestamp);
+  const ctx = getContextMode(date);
+  const contextStr = `${ctx.dayModeLabel} · ${ctx.timeRegimeLabel}`;
 
   const minutes = Math.max(0, log.duration ?? 0);
   const hours = minutes / 60;
   const revPerHour = minutes > 0 ? (log.amount / minutes) * 60 : null;
+  const durationOk = Number.isFinite(log.duration) && log.duration > 0;
+  const validityStr = durationOk ? "rev/hour OK" : "duration missing";
 
   const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
@@ -83,6 +88,9 @@ export function EarningsLogItem({ log, onDelete }: EarningsLogItemProps) {
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
             {zone?.name || log.zone} · {durationStr}
           </ThemedText>
+          <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+            {contextStr}
+          </ThemedText>
         </View>
       </View>
       <View style={styles.rightSection}>
@@ -91,7 +99,10 @@ export function EarningsLogItem({ log, onDelete }: EarningsLogItemProps) {
             {money}
           </ThemedText>
           <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-            {perHour} · {dateStr} {timeStr}
+            {perHour} · {validityStr}
+          </ThemedText>
+          <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+            {dateStr} {timeStr}
           </ThemedText>
         </View>
         {onDelete ? (
