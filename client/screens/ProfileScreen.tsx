@@ -3,6 +3,8 @@ import { View, StyleSheet, Image, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
@@ -25,6 +27,7 @@ import {
 import { useLanguage } from "@/lib/language-context";
 import { LANGUAGES, type Language } from "@/lib/translations";
 import type { ScoringMode } from "@/lib/dual-scorer";
+import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -32,11 +35,13 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [scoringMode, setScoringModeState] = useState<ScoringMode>("PILOT");
   const [recordCount, setRecordCount] = useState(0);
+  const [adminTapCount, setAdminTapCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -106,6 +111,18 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleVersionTap = () => {
+    const newCount = adminTapCount + 1;
+    setAdminTapCount(newCount);
+    if (newCount >= 5) {
+      setAdminTapCount(0);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.navigate("AdminLogin");
+    } else if (newCount >= 3) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const currentLanguage = LANGUAGES.find((l) => l.code === language);
@@ -348,12 +365,12 @@ export default function ProfileScreen() {
           <View
             style={[styles.settingCard, { backgroundColor: theme.backgroundDefault }]}
           >
-            <View style={styles.aboutRow}>
+            <Pressable style={styles.aboutRow} onPress={handleVersionTap}>
               <ThemedText type="body">{t.profile.version}</ThemedText>
               <ThemedText type="body" style={{ color: theme.textSecondary }}>
                 1.0.0
               </ThemedText>
-            </View>
+            </Pressable>
             <View style={styles.creditsDivider} />
             <View style={styles.creditsSection}>
               <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center" }}>
