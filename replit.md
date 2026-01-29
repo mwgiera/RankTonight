@@ -36,8 +36,8 @@ Hidden admin system for collecting and viewing visitor location data:
 ### Dual-Mode Scoring System
 The app supports two scoring modes controlled via Profile settings:
 
-**DEMO Mode (default)**
-- Uses Krakow market benchmarks (Uber PLN 55-62/hr, Bolt PLN 40-50/hr, FreeNow PLN 42-52/hr)
+**PILOT Mode (default)**
+- Uses Kraków market benchmarks (Uber PLN 55-62/hr, Bolt PLN 40-50/hr, FreeNow PLN 42-52/hr)
 - Shows "Opportunity Score" based on demand/friction priors
 - Active until user has minimum 5 logged records
 
@@ -45,7 +45,24 @@ The app supports two scoring modes controlled via Profile settings:
 - Requires minimum 5 earnings records for the selected zone
 - Uses driver's logged earnings history with 30-day time-decay weighting
 - Shows "Profitability" based on actual rev/hour (or per-trip if duration missing)
-- Falls back to DEMO mode if insufficient data
+- Falls back to PILOT mode if insufficient data
+- Confidence level based on sample count: <5 samples = max 35%, 5-15 samples = 35-65%, >15 samples = up to 85%
+
+### Time Regimes (5 Coarse Blocks)
+- morning-rush: 05:00-09:00
+- midday: 09:00-15:00
+- evening-rush: 15:00-19:00
+- late-night: 19:00-01:00
+- overnight: 01:00-05:00
+
+Weekend mode activates on Saturday, Sunday, and Friday after 20:00.
+
+### Polish Cost Model Defaults
+- Operating cost: 0.70 PLN/km
+- Target hourly rate: 90 PLN/h
+- Tolerance threshold: 0.10 (10%)
+- Minimum hourly threshold: 81 PLN/h
+- Estimated speed: 0.45 km/minute
 
 ### Receipt Parser
 The app can parse trip receipts from email text:
