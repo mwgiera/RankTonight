@@ -77,9 +77,9 @@ export async function clearAllLogs(): Promise<void> {
 export async function getSelectedZone(): Promise<string> {
   try {
     const zone = await AsyncStorage.getItem(SELECTED_ZONE_KEY);
-    return zone || "downtown";
+    return zone || "stare-miasto";
   } catch {
-    return "downtown";
+    return "stare-miasto";
   }
 }
 

@@ -46,7 +46,7 @@ export default function NowScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { language, t } = useLanguage();
 
-  const [selectedZoneId, setSelectedZoneId] = useState("downtown");
+  const [selectedZoneId, setSelectedZoneId] = useState("stare-miasto");
   const [ranking, setRanking] = useState<DualRankingResult | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showZonePicker, setShowZonePicker] = useState(false);
@@ -80,7 +80,7 @@ export default function NowScreen() {
         );
         
         const savedZone = await getSelectedZone();
-        if (savedZone === "downtown") {
+        if (savedZone === "stare-miasto") {
           setSelectedZoneId(nearestZone.id);
           await setSelectedZone(nearestZone.id);
         }
