@@ -9,7 +9,7 @@ import type {
   ContextMode,
   EarningsLog,
 } from "./ranking-model";
-import { getContextMode, getAllPlatforms, ZONES, calculateRankings } from "./ranking-model";
+import { getContextMode, getAllPlatforms, ZONES, calculateRankings, getConfidenceFromSampleCount, SCORING_DEFAULTS } from "./ranking-model";
 
 export type ScoringMode = "PILOT" | "PERSONAL";
 
@@ -43,12 +43,10 @@ function applyTimeDecay(timestamp: number, now: number = Date.now()): number {
 }
 
 function getTimeRegimeFromHour(hour: number): TimeRegime {
-  if (hour >= 5 && hour < 7) return "early-morning";
-  if (hour >= 7 && hour < 10) return "morning-rush";
-  if (hour >= 10 && hour < 14) return "midday";
-  if (hour >= 14 && hour < 17) return "afternoon";
-  if (hour >= 17 && hour < 20) return "evening-rush";
-  if (hour >= 20 || hour < 2) return "late-night";
+  if (hour >= 5 && hour < 9) return "morning-rush";
+  if (hour >= 9 && hour < 15) return "midday";
+  if (hour >= 15 && hour < 19) return "evening-rush";
+  if (hour >= 19 || hour < 1) return "late-night";
   return "overnight";
 }
 
@@ -231,6 +229,13 @@ export function scorePersonal(
 function getConfidenceLevel(value: number): ConfidenceLevel {
   if (value >= 0.25) return "Strong";
   if (value >= 0.1) return "Medium";
+  return "Weak";
+}
+
+function getConfidenceLevelFromSampleCount(sampleCount: number): ConfidenceLevel {
+  const conf = getConfidenceFromSampleCount(sampleCount);
+  if (conf >= 65) return "Strong";
+  if (conf >= 35) return "Medium";
   return "Weak";
 }
 

@@ -2,7 +2,7 @@ export type Platform = "bolt" | "uber" | "freenow";
 export type ZoneCategory = "airport" | "center" | "residential";
 export type ConfidenceLevel = "Strong" | "Medium" | "Weak";
 export type DayMode = "WEEKDAY" | "WEEKEND";
-export type TimeRegime = "early-morning" | "morning-rush" | "midday" | "afternoon" | "evening-rush" | "late-night" | "overnight";
+export type TimeRegime = "morning-rush" | "midday" | "evening-rush" | "late-night" | "overnight";
 
 export interface ContextMode {
   dayMode: DayMode;
@@ -84,24 +84,20 @@ function getDayType(day: number, hour: number): DayMode {
 }
 
 function getTimeRegime(hour: number): TimeRegime {
-  if (hour >= 5 && hour < 7) return "early-morning";
-  if (hour >= 7 && hour < 10) return "morning-rush";
-  if (hour >= 10 && hour < 14) return "midday";
-  if (hour >= 14 && hour < 17) return "afternoon";
-  if (hour >= 17 && hour < 20) return "evening-rush";
-  if (hour >= 20 || hour < 2) return "late-night";
+  if (hour >= 5 && hour < 9) return "morning-rush";
+  if (hour >= 9 && hour < 15) return "midday";
+  if (hour >= 15 && hour < 19) return "evening-rush";
+  if (hour >= 19 || hour < 1) return "late-night";
   return "overnight";
 }
 
 function getTimeRegimeLabel(regime: TimeRegime): string {
   const labels: Record<TimeRegime, string> = {
-    "early-morning": "Early Morning (05-07)",
-    "morning-rush": "Morning Rush (07-10)",
-    "midday": "Midday (10-14)",
-    "afternoon": "Afternoon (14-17)",
-    "evening-rush": "Evening Rush (17-20)",
-    "late-night": "Late Night (20-02)",
-    "overnight": "Overnight (02-05)",
+    "morning-rush": "Morning Rush (05-09)",
+    "midday": "Midday (09-15)",
+    "evening-rush": "Evening Rush (15-19)",
+    "late-night": "Late Night (19-01)",
+    "overnight": "Overnight (01-05)",
   };
   return labels[regime];
 }
@@ -125,39 +121,31 @@ type SeasonalityTable = Record<ZoneCategory, Record<DayMode, Record<TimeRegime, 
 const SEASONALITY: SeasonalityTable = {
   airport: {
     WEEKDAY: {
-      "early-morning": 1.6,
-      "morning-rush": 1.8,
-      "midday": 1.2,
-      "afternoon": 1.4,
+      "morning-rush": 1.7,
+      "midday": 1.3,
       "evening-rush": 1.5,
       "late-night": 0.8,
       "overnight": 0.6,
     },
     WEEKEND: {
-      "early-morning": 1.3,
       "morning-rush": 1.4,
-      "midday": 1.3,
-      "afternoon": 1.5,
-      "evening-rush": 1.3,
+      "midday": 1.4,
+      "evening-rush": 1.4,
       "late-night": 0.7,
       "overnight": 0.6,
     },
   },
   center: {
     WEEKDAY: {
-      "early-morning": 0.9,
-      "morning-rush": 1.6,
+      "morning-rush": 1.5,
       "midday": 1.1,
-      "afternoon": 1.2,
-      "evening-rush": 1.8,
+      "evening-rush": 1.7,
       "late-night": 0.6,
       "overnight": 0.5,
     },
     WEEKEND: {
-      "early-morning": 0.8,
       "morning-rush": 0.9,
-      "midday": 1.3,
-      "afternoon": 1.5,
+      "midday": 1.4,
       "evening-rush": 1.7,
       "late-night": 2.0,
       "overnight": 1.6,
@@ -165,19 +153,15 @@ const SEASONALITY: SeasonalityTable = {
   },
   residential: {
     WEEKDAY: {
-      "early-morning": 1.0,
-      "morning-rush": 1.5,
+      "morning-rush": 1.4,
       "midday": 0.9,
-      "afternoon": 1.1,
-      "evening-rush": 1.4,
+      "evening-rush": 1.3,
       "late-night": 0.5,
       "overnight": 0.4,
     },
     WEEKEND: {
-      "early-morning": 0.8,
       "morning-rush": 0.9,
       "midday": 1.0,
-      "afternoon": 1.1,
       "evening-rush": 1.2,
       "late-night": 0.6,
       "overnight": 0.4,
@@ -210,6 +194,8 @@ const DEADHEAD_RISK: Record<ZoneCategory, number> = {
 };
 
 const weights = {
+  w_offer: 0.80,
+  w_postDest: 0.20,
   w1: 1.0,
   w2: 0.8,
   w3: 0.5,
@@ -220,6 +206,20 @@ const weights = {
   b1: 0.6,
   b2: 0.4,
 };
+
+export const SCORING_DEFAULTS = {
+  costPerKm: 0.70,
+  targetHourly: 90,
+  tolerance: 0.10,
+  minHourlyThreshold: 81,
+  estKmPerMinute: 0.45,
+};
+
+export function getConfidenceFromSampleCount(sampleCount: number): number {
+  if (sampleCount < 5) return Math.min(35, sampleCount * 7);
+  if (sampleCount <= 15) return 35 + ((sampleCount - 5) / 10) * 30;
+  return Math.min(85, 65 + ((sampleCount - 15) / 20) * 20);
+}
 
 interface PlatformPriors {
   incentive: Record<Platform, Record<ZoneCategory, number>>;
@@ -338,14 +338,29 @@ export function calculateRankings(
 }
 
 export const ZONES: Zone[] = [
-  { id: "airport", name: "Airport", category: "airport", behaviorBias: "transit-heavy", lat: 50.0777, lng: 19.7848, radius: 3 },
-  { id: "downtown", name: "Downtown", category: "center", behaviorBias: "daytime bias", lat: 50.0614, lng: 19.9372, radius: 1.5 },
-  { id: "central-station", name: "Central Station", category: "center", behaviorBias: "transit-heavy", lat: 50.0678, lng: 19.9470, radius: 0.8 },
-  { id: "nightlife-district", name: "Nightlife District", category: "center", behaviorBias: "late-night bias", lat: 50.0520, lng: 19.9350, radius: 1 },
-  { id: "business-park", name: "Business Park", category: "center", behaviorBias: "weekday bias", lat: 50.0800, lng: 19.9900, radius: 2 },
-  { id: "north-suburbs", name: "North Suburbs", category: "residential", behaviorBias: "commuter hours", lat: 50.1100, lng: 19.9500, radius: 4 },
-  { id: "south-suburbs", name: "South Suburbs", category: "residential", behaviorBias: "commuter hours", lat: 50.0200, lng: 19.9400, radius: 4 },
-  { id: "west-side", name: "West Side", category: "residential", behaviorBias: "commuter hours", lat: 50.0600, lng: 19.8700, radius: 3 },
+  // Center zones (high activity)
+  { id: "stare-miasto", name: "Stare Miasto", category: "center", behaviorBias: "daytime bias", lat: 50.0614, lng: 19.9372, radius: 1.5 },
+  { id: "kazimierz", name: "Kazimierz", category: "center", behaviorBias: "late-night bias", lat: 50.0508, lng: 19.9447, radius: 1 },
+  { id: "grzegorzki", name: "Grzegórzki", category: "center", behaviorBias: "weekday bias", lat: 50.0650, lng: 19.9650, radius: 2 },
+  { id: "podgorze", name: "Podgórze", category: "center", behaviorBias: "mixed", lat: 50.0450, lng: 19.9550, radius: 2 },
+  { id: "podgorze-duchackie", name: "Podgórze Duchackie", category: "residential", behaviorBias: "commuter hours", lat: 50.0200, lng: 19.9600, radius: 3 },
+  // West zones
+  { id: "krowodrza", name: "Krowodrza", category: "residential", behaviorBias: "commuter hours", lat: 50.0750, lng: 19.9100, radius: 2.5 },
+  { id: "bronowice", name: "Bronowice", category: "residential", behaviorBias: "commuter hours", lat: 50.0850, lng: 19.8900, radius: 2 },
+  { id: "zwierzyniec", name: "Zwierzyniec", category: "residential", behaviorBias: "commuter hours", lat: 50.0550, lng: 19.8750, radius: 3 },
+  { id: "debniki", name: "Dębniki", category: "residential", behaviorBias: "commuter hours", lat: 50.0400, lng: 19.9100, radius: 2.5 },
+  { id: "lagiewniki-borek", name: "Łagiewniki–Borek Fałęcki", category: "residential", behaviorBias: "commuter hours", lat: 50.0150, lng: 19.9300, radius: 2 },
+  { id: "ruczaj", name: "Ruczaj", category: "residential", behaviorBias: "commuter hours", lat: 50.0250, lng: 19.8900, radius: 2 },
+  // North zones
+  { id: "pradnik-bialy", name: "Prądnik Biały", category: "residential", behaviorBias: "commuter hours", lat: 50.1000, lng: 19.9200, radius: 3 },
+  { id: "pradnik-czerwony", name: "Prądnik Czerwony", category: "residential", behaviorBias: "commuter hours", lat: 50.1000, lng: 19.9600, radius: 2.5 },
+  // East zones (Nowa Huta area)
+  { id: "czyzyny", name: "Czyżyny", category: "residential", behaviorBias: "commuter hours", lat: 50.0700, lng: 20.0100, radius: 2.5 },
+  { id: "mistrzejowice", name: "Mistrzejowice", category: "residential", behaviorBias: "commuter hours", lat: 50.1050, lng: 20.0100, radius: 2 },
+  { id: "bienczyce", name: "Bieńczyce", category: "residential", behaviorBias: "commuter hours", lat: 50.0900, lng: 20.0350, radius: 2 },
+  { id: "nowa-huta", name: "Nowa Huta", category: "residential", behaviorBias: "commuter hours", lat: 50.0700, lng: 20.0500, radius: 3 },
+  // Airport zone (special)
+  { id: "airport-balice", name: "Kraków Airport / Balice", category: "airport", behaviorBias: "transit-heavy", lat: 50.0777, lng: 19.7848, radius: 3 },
 ];
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
