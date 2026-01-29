@@ -1,0 +1,97 @@
+Good. Kraków + coarse zones = districts. That’s the right MVP choice: fast input, stable stats, low noise.
+
+Defaults to bake into the MVP (Kraków / coarse)
+
+Zone granularity
+	•	Zone = district / major area, not neighborhoods, not hex grid.
+	•	Target: 12–18 zones max (so the driver can pick in 2 taps).
+
+Kraków zone set (recommended seed)
+
+Use these as your initial Zone seeds (names are “good enough” for an MVP; you can refine later):
+	1.	Stare Miasto
+	2.	Kazimierz
+	3.	Grzegórzki
+	4.	Podgórze
+	5.	Podgórze Duchackie
+	6.	Krowodrza
+	7.	Prądnik Biały
+	8.	Prądnik Czerwony
+	9.	Czyżyny
+	10.	Mistrzejowice
+	11.	Bieńczyce
+	12.	Nowa Huta
+	13.	Bronowice
+	14.	Zwierzyniec
+	15.	Dębniki
+	16.	Łagiewniki–Borek Fałęcki
+	17.	Ruczaj
+	18.	Kraków Airport / Balice (treat as a special zone)
+
+If you want even more coarse (faster stats early), merge:
+	•	Ruczaj into Dębniki
+	•	Bronowice + Zwierzyniec into West
+	•	Prądniki + Mistrzejowice + Bieńczyce into North/East
+
+⸻
+
+Scoring defaults tuned for “coarse”
+
+These are the parameters you hardcode as sensible defaults in /lib/scoring.ts (user can change later).
+
+Time buckets
+	•	Weekday vs Weekend
+	•	Hour blocks: 05–09, 09–15, 15–19, 19–01, 01–05
+
+Confidence rules (critical)
+	•	sampleCount < 5 ⇒ confidence <= 35, post-destination term heavily discounted
+	•	sampleCount 5–15 ⇒ confidence 35–65
+	•	sampleCount > 15 ⇒ confidence up to 85
+
+Weights (coarse-friendly)
+	•	w_offer = 0.80
+	•	w_postDest = 0.20 (don’t overfit early)
+
+Cost model default (Poland baseline)
+	•	costPerKm = 0.70 PLN default (editable)
+	•	If distance not provided: estimate distance from minutes:
+	•	estKm = estMinutes * 0.45 (rough city avg; editable later)
+
+Decision threshold
+	•	Default target hourly: targetHourly = 90 PLN/h (editable)
+	•	Tolerance: tolerance = 0.10 (so TAKE if ≥ 81 PLN/h equivalent score)
+
+⸻
+
+Input UX decisions (because Kraków coarse must be fast)
+
+On /new-offer:
+	•	Pickup zone: dropdown with search
+	•	Destination zone: dropdown with search
+	•	Platform: 3-button segmented control
+	•	Fare + Minutes: numeric keypad
+	•	Distance: optional
+
+You will win or lose on this screen. Keep it 10 seconds.
+
+⸻
+
+Seed script spec (so Replit can execute cleanly)
+
+Create:
+	•	prisma/seed.ts to insert:
+	•	a single “Kraków” city label
+	•	the zone list above
+
+Also add:
+	•	50 fake OfferLogs distributed across zones/time buckets so analytics isn’t empty on first run.
+
+⸻
+
+What to tell Replit Agent next
+
+Paste this line into your prompt (so it uses your choices without asking again):
+
+“Target city: Kraków. Zone granularity: coarse districts. Seed 18 zones: [list]. Use weekday/weekend + 5 hour blocks. Use weights offer 0.8 / postDest 0.2. Confidence capped when sampleCount < 5.”
+
+If you want, I can rewrite your Replit prompt with these Kraków defaults embedded (so the agent doesn’t invent its own zone model).
