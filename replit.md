@@ -23,7 +23,15 @@ Preferred communication style: Simple, everyday language.
 - **5-tab navigation**: Now (recommendations), Zones (zone insights), Log (earnings input), Receipts (receipt parsing), Profile (settings)
 - **No authentication required**: Single-user utility app with local storage for preferences
 - **Dark theme only**: Dashboard aesthetic with deep navy-black backgrounds
-- **Full i18n support**: German, English, and Polish translations
+- **Full i18n support**: German, English, Polish, and Ukrainian translations
+
+### Admin Geolocation Tracking
+Hidden admin system for collecting and viewing visitor location data:
+- **Location Tracking**: Client sends GPS coordinates every 60 seconds to `/api/location`
+- **Admin Access**: Tap version number 5 times in Profile screen to open admin login
+- **Admin Password**: "driveradar2026" (or ADMIN_PASSWORD env var)
+- **Dashboard**: Shows active visitors, total locations (24h), zone distribution, recent locations
+- **Database Tables**: `visitor_locations` (id, visitor_id, lat/lng, zone, timestamp), `admin_sessions` (token, expiry)
 
 ### Dual-Mode Scoring System
 The app supports two scoring modes controlled via Profile settings:
@@ -65,7 +73,7 @@ Personal Score = Time-Decayed Avg Rev/Hour (or Earnings/Trip if duration missing
 
 ### Data Layer
 - **Client Storage**: AsyncStorage for earnings logs, selected zone, user preferences, scoring mode, and parsed receipts
-- **Server Storage**: Currently uses in-memory storage; PostgreSQL schema defined but not yet connected
+- **Server Storage**: PostgreSQL database with Drizzle ORM for admin location tracking
 - **Schema**: Drizzle ORM with PostgreSQL dialect (`shared/schema.ts`)
 - **CSV Export**: Full trip history can be exported as CSV via the Receipts tab
 
