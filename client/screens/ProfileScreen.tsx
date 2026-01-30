@@ -87,6 +87,14 @@ export default function ProfileScreen() {
     await saveUserPreferences({ notificationsEnabled: newPrefs.notificationsEnabled });
   };
 
+  const handleDataSharingToggle = async () => {
+    if (!prefs) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newPrefs = { ...prefs, dataSharingEnabled: !prefs.dataSharingEnabled };
+    setPrefs(newPrefs);
+    await saveUserPreferences({ dataSharingEnabled: newPrefs.dataSharingEnabled });
+  };
+
   const handleLanguageSelect = async (lang: Language) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await setLanguage(lang);
@@ -352,6 +360,44 @@ export default function ProfileScreen() {
               Lower values = more decisive recommendations
             </ThemedText>
           </View>
+
+          <View
+            style={[styles.settingCard, { backgroundColor: theme.backgroundDefault, marginTop: Spacing.md }]}
+          >
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Feather name="shield" size={20} color={theme.text} />
+                <ThemedText type="body" style={{ marginLeft: Spacing.md }}>
+                  Share Anonymous Location
+                </ThemedText>
+              </View>
+              <Pressable
+                onPress={handleDataSharingToggle}
+                style={[
+                  styles.toggle,
+                  {
+                    backgroundColor: prefs.dataSharingEnabled
+                      ? Colors.dark.success
+                      : theme.backgroundTertiary,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.toggleThumb,
+                    {
+                      transform: [
+                        { translateX: prefs.dataSharingEnabled ? 20 : 0 },
+                      ],
+                    },
+                  ]}
+                />
+              </Pressable>
+            </View>
+            <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
+              Helps improve zone models by sharing your current zone anonymously.
+            </ThemedText>
+          </View>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(300).duration(300)}>
@@ -365,12 +411,12 @@ export default function ProfileScreen() {
           <View
             style={[styles.settingCard, { backgroundColor: theme.backgroundDefault }]}
           >
-            <Pressable style={styles.aboutRow} onPress={handleVersionTap}>
+            <View style={styles.aboutRow}>
               <ThemedText type="body">{t.profile.version}</ThemedText>
               <ThemedText type="body" style={{ color: theme.textSecondary }}>
                 1.0.0
               </ThemedText>
-            </Pressable>
+            </View>
             <View style={styles.creditsDivider} />
             <View style={styles.creditsSection}>
               <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center" }}>

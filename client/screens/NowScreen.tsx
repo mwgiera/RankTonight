@@ -31,8 +31,10 @@ import {
   getZoneById,
   ZONES,
   findNearestZone,
+  type PlatformScore,
 } from "@/lib/ranking-model";
-import { getSelectedZone, setSelectedZone, getEarningsLogs, getScoringMode } from "@/lib/storage";
+import { getSelectedZone, setSelectedZone, getEarningsLogs, getScoringMode, getUserPreferences } from "@/lib/storage";
+import { getApiUrl } from "@/lib/query-client";
 import { calculateDualRanking, type DualRankingResult, type ScoringMode } from "@/lib/dual-scorer";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useLanguage } from "@/lib/language-context";
@@ -65,6 +67,10 @@ export default function NowScreen() {
   const detectLocationZone = async () => {
     if (RNPlatform.OS === "web") return;
     
+    // Check opt-in first
+    const currentPrefs = await getUserPreferences();
+    if (!currentPrefs.dataSharingEnabled) return;
+
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       setLocationPermission(status === "granted");
@@ -84,6 +90,17 @@ export default function NowScreen() {
           setSelectedZoneId(nearestZone.id);
           await setSelectedZone(nearestZone.id);
         }
+
+        // Anonymized zone sharing (only if opted-in)
+        const apiUrl = getApiUrl();
+        await fetch(new URL("/api/location", apiUrl).toString(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            zoneId: nearestZone.id,
+            timestamp: Date.now()
+          }),
+        }).catch(() => {});
       }
     } catch (error) {
       console.log("Location detection failed:", error);
@@ -170,6 +187,7 @@ export default function NowScreen() {
 
   const topRanking = ranking.rankings[0];
   const alternativeRankings = ranking.rankings.slice(1);
+  const isWeak = ranking.confidence === "Weak";
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
@@ -271,117 +289,156 @@ export default function NowScreen() {
           ) : null}
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.delay(100).duration(400)}
-          style={[
-            styles.recommendationCard,
-            { backgroundColor: theme.backgroundDefault, borderColor: Colors.dark.primary },
-            pulseStyle,
-          ]}
-        >
-          <View style={[styles.modeIndicator, { backgroundColor: ranking.mode === "PERSONAL" ? Colors.dark.success + "20" : Colors.dark.primary + "20" }]}>
-            <Feather 
-              name={ranking.mode === "PERSONAL" ? "user" : "activity"} 
-              size={12} 
-              color={ranking.mode === "PERSONAL" ? Colors.dark.success : Colors.dark.primary} 
-            />
-            <ThemedText type="caption" style={{ 
-              color: ranking.mode === "PERSONAL" ? Colors.dark.success : Colors.dark.primary,
-              marginLeft: Spacing.xs,
-              fontWeight: "500",
-            }}>
-              {ranking.mode === "PERSONAL" ? t.now.profitability : t.now.opportunityScore}
+        {isWeak ? (
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(500)}
+            style={[
+              { 
+                backgroundColor: theme.backgroundDefault, 
+                padding: Spacing.xl, 
+                borderRadius: BorderRadius.md, 
+                alignItems: "center",
+                marginTop: Spacing.xl 
+              }
+            ]}
+          >
+            <Feather name="database" size={40} color={theme.textTertiary} style={{ marginBottom: Spacing.md }} />
+            <ThemedText type="h2" style={{ textAlign: "center", marginBottom: Spacing.xs }}>
+              Insufficient Data
             </ThemedText>
-            {ranking.mode === "PILOT" && ranking.currentRecordCount > 0 ? (
-              <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
-                ({ranking.currentRecordCount}/{ranking.minRecordsRequired} {t.now.needMoreRecords.split(" ")[0]})
-              </ThemedText>
-            ) : null}
-          </View>
+            <ThemedText type="body" style={{ textAlign: "center", color: theme.textSecondary }}>
+              We need more logs for this zone and time to give a confident recommendation. Keep driving and log your earnings!
+            </ThemedText>
+            <Pressable
+              onPress={handleLogEarnings}
+              style={[
+                { 
+                  backgroundColor: Colors.dark.primary, 
+                  paddingHorizontal: Spacing.xl, 
+                  paddingVertical: Spacing.md, 
+                  borderRadius: BorderRadius.sm,
+                  marginTop: Spacing.xl 
+                }
+              ]}
+            >
+              <ThemedText style={{ color: "#FFF", fontWeight: "600" }}>Log First Trip</ThemedText>
+            </Pressable>
+          </Animated.View>
+        ) : (
+          <>
+            <Animated.View
+              entering={FadeInDown.delay(100).duration(400)}
+              style={[
+                styles.recommendationCard,
+                { backgroundColor: theme.backgroundDefault, borderColor: Colors.dark.primary },
+                pulseStyle,
+              ]}
+            >
+              <View style={[styles.modeIndicator, { backgroundColor: ranking.mode === "PERSONAL" ? Colors.dark.success + "20" : Colors.dark.primary + "20" }]}>
+                <Feather 
+                  name={ranking.mode === "PERSONAL" ? "user" : "activity"} 
+                  size={12} 
+                  color={ranking.mode === "PERSONAL" ? Colors.dark.success : Colors.dark.primary} 
+                />
+                <ThemedText type="caption" style={{ 
+                  color: ranking.mode === "PERSONAL" ? Colors.dark.success : Colors.dark.primary,
+                  marginLeft: Spacing.xs,
+                  fontWeight: "500",
+                }}>
+                  {ranking.mode === "PERSONAL" ? t.now.profitability : t.now.opportunityScore}
+                </ThemedText>
+                {ranking.mode === "PILOT" && ranking.currentRecordCount > 0 ? (
+                  <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                    ({ranking.currentRecordCount}/{ranking.minRecordsRequired} {t.now.needMoreRecords.split(" ")[0]})
+                  </ThemedText>
+                ) : null}
+              </View>
 
-          <View style={styles.contextConfidenceRow}>
-            <View style={styles.contextSummary}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {t.now.basedOn.toUpperCase()}
-              </ThemedText>
-              <ThemedText type="caption" style={{ color: theme.text, marginTop: 2 }}>
-                {zone?.name}
-              </ThemedText>
-              {context ? (
-                <>
-                  <ThemedText type="caption" style={{ color: context.dayMode === "WEEKEND" ? Colors.dark.primary : theme.textSecondary }}>
-                    {getDayModeLabelTranslated(context.dayMode, language)}
+              <View style={styles.contextConfidenceRow}>
+                <View style={styles.contextSummary}>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    {t.now.basedOn.toUpperCase()}
                   </ThemedText>
-                  <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                    {getTimeRegimeLabelTranslated(context.timeRegime, language)}
+                  <ThemedText type="caption" style={{ color: theme.text, marginTop: 2 }}>
+                    {zone?.name}
                   </ThemedText>
-                </>
-              ) : null}
-            </View>
-            <View style={styles.confidenceSummary}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {t.now.confidence.toUpperCase()}
-              </ThemedText>
-              <View style={[styles.confidenceBadge, 
-                ranking.confidence === "Strong" && { backgroundColor: Colors.dark.success + "30" },
-                ranking.confidence === "Medium" && { backgroundColor: Colors.dark.warning + "30" },
-                ranking.confidence === "Weak" && { backgroundColor: Colors.dark.danger + "30" },
-              ]}>
-                <ThemedText type="body" style={[
-                  { fontWeight: "600" },
-                  ranking.confidence === "Strong" && { color: Colors.dark.success },
-                  ranking.confidence === "Medium" && { color: Colors.dark.warning },
-                  ranking.confidence === "Weak" && { color: Colors.dark.danger },
-                ]}>
-                  {ranking.confidence === "Strong" ? t.now.strong : ranking.confidence === "Medium" ? t.now.medium : t.now.weak}
+                  {context ? (
+                    <>
+                      <ThemedText type="caption" style={{ color: context.dayMode === "WEEKEND" ? Colors.dark.primary : theme.textSecondary }}>
+                        {getDayModeLabelTranslated(context.dayMode, language)}
+                      </ThemedText>
+                      <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                        {getTimeRegimeLabelTranslated(context.timeRegime, language)}
+                      </ThemedText>
+                    </>
+                  ) : null}
+                </View>
+                <View style={styles.confidenceSummary}>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    {t.now.confidence.toUpperCase()}
+                  </ThemedText>
+                  <View style={[styles.confidenceBadge, 
+                    ranking.confidence === "Strong" && { backgroundColor: Colors.dark.success + "30" },
+                    ranking.confidence === "Medium" && { backgroundColor: Colors.dark.warning + "30" },
+                    ranking.confidence === "Weak" && { backgroundColor: Colors.dark.danger + "30" },
+                  ]}>
+                    <ThemedText type="body" style={[
+                      { fontWeight: "600" },
+                      ranking.confidence === "Strong" && { color: Colors.dark.success },
+                      ranking.confidence === "Medium" && { color: Colors.dark.warning },
+                      ranking.confidence === "Weak" && { color: Colors.dark.danger },
+                    ]}>
+                      {ranking.confidence === "Strong" ? t.now.strong : ranking.confidence === "Medium" ? t.now.medium : t.now.weak}
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.cardHeader}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  {t.now.topPick}
                 </ThemedText>
               </View>
-            </View>
-          </View>
+              <View style={styles.platformRow}>
+                <View
+                  style={[
+                    styles.platformColorBar,
+                    { backgroundColor: getPlatformColor(topRanking!.platform) },
+                  ]}
+                />
+                <ThemedText type="hero" style={styles.platformName}>
+                  {getPlatformDisplayName(topRanking!.platform)}
+                </ThemedText>
+              </View>
+              <ConfidenceBar value={ranking.confidenceValue} level={ranking.confidence} />
+              <ScoreBreakdown
+                demand={topRanking!.demandScore}
+                friction={topRanking!.frictionScore}
+                incentive={topRanking!.incentiveScore}
+                reliability={topRanking!.reliabilityScore}
+              />
+            </Animated.View>
 
-          <View style={styles.divider} />
-
-          <View style={styles.cardHeader}>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              {t.now.topPick}
-            </ThemedText>
-          </View>
-          <View style={styles.platformRow}>
-            <View
-              style={[
-                styles.platformColorBar,
-                { backgroundColor: getPlatformColor(topRanking.platform) },
-              ]}
-            />
-            <ThemedText type="hero" style={styles.platformName}>
-              {getPlatformDisplayName(topRanking.platform)}
-            </ThemedText>
-          </View>
-          <ConfidenceBar value={ranking.confidenceValue} level={ranking.confidence} />
-          <ScoreBreakdown
-            demand={topRanking.demandScore}
-            friction={topRanking.frictionScore}
-            incentive={topRanking.incentiveScore}
-            reliability={topRanking.reliabilityScore}
-          />
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-          <ThemedText
-            type="h2"
-            style={{ marginTop: Spacing["2xl"], marginBottom: Spacing.md }}
-          >
-            {t.now.alternativeOptions}
-          </ThemedText>
-          {alternativeRankings.map((r, index) => (
-            <PlatformCard
-              key={r.platform}
-              platform={r.platform}
-              probability={r.probability}
-              rank={index + 2}
-            />
-          ))}
-        </Animated.View>
+            <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+              <ThemedText
+                type="h2"
+                style={{ marginTop: Spacing["2xl"], marginBottom: Spacing.md }}
+              >
+                {t.now.alternativeOptions}
+              </ThemedText>
+              {alternativeRankings.map((r, index) => (
+                <PlatformCard
+                  key={r.platform}
+                  platform={r.platform}
+                  probability={r.probability}
+                  rank={index + 2}
+                />
+              ))}
+            </Animated.View>
+          </>
+        )}
       </ScrollView>
 
       <FloatingActionButton

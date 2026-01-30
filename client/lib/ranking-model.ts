@@ -1,3 +1,13 @@
+export interface PlatformScore {
+  platform: Platform;
+  score: number;
+  probability: number;
+  demandScore: number;
+  frictionScore: number;
+  incentiveScore: number;
+  reliabilityScore: number;
+}
+
 export type Platform = "bolt" | "uber" | "freenow";
 export type ZoneCategory = "airport" | "center" | "residential";
 export type ConfidenceLevel = "Strong" | "Medium" | "Weak";
@@ -9,21 +19,12 @@ export interface ContextMode {
   timeRegime: TimeRegime;
   timeRegimeLabel: string;
   dayModeLabel: string;
-}
-
-export interface PlatformScore {
-  platform: Platform;
-  score: number;
-  probability: number;
-  demandScore: number;
-  frictionScore: number;
-  incentiveScore: number;
-  reliabilityScore: number;
+  isNightEconomy: boolean;
 }
 
 export interface RankingResult {
   rankings: PlatformScore[];
-  topPlatform: Platform;
+  topPlatform: Platform | null;
   confidence: ConfidenceLevel;
   confidenceValue: number;
   context: ContextMode;
@@ -72,17 +73,6 @@ export const getPlatformColor = (platform: Platform): string => {
 
 export const getAllPlatforms = (): Platform[] => PLATFORMS;
 
-/**
- * JS Date.getDay(): 0=Sun..6=Sat
- * Weekend = Sat/Sun
- * Weekend-like = Fri >= 20:00
- */
-function getDayType(day: number, hour: number): DayMode {
-  const weekend = (day === 0 || day === 6);
-  const fridayLate = (day === 5 && hour >= 20);
-  return (weekend || fridayLate) ? "WEEKEND" : "WEEKDAY";
-}
-
 function getTimeRegime(hour: number): TimeRegime {
   if (hour >= 5 && hour < 9) return "morning-rush";
   if (hour >= 9 && hour < 15) return "midday";
@@ -102,16 +92,35 @@ function getTimeRegimeLabel(regime: TimeRegime): string {
   return labels[regime];
 }
 
+/**
+ * JS Date.getDay(): 0=Sun..6=Sat
+ * Weekend = Sat/Sun
+ * Weekend-like = Fri >= 20:00
+ */
+function getDayType(day: number): DayMode {
+  return (day === 0 || day === 6) ? "WEEKEND" : "WEEKDAY";
+}
+
+function isNightEconomy(day: number, hour: number): boolean {
+  // Fri 20:00 to Sun 05:00 is Night Economy
+  if (day === 5 && hour >= 20) return true;
+  if (day === 6) return true;
+  if (day === 0 && hour < 5) return true;
+  return false;
+}
+
 export function getContextMode(date: Date = new Date()): ContextMode {
   const day = date.getDay();
   const hour = date.getHours();
-  const dayMode = getDayType(day, hour);
+  const dayMode = getDayType(day);
   const timeRegime = getTimeRegime(hour);
+  const nightEconomy = isNightEconomy(day, hour);
   
   return {
     dayMode,
     timeRegime,
-    dayModeLabel: dayMode === "WEEKEND" ? "Weekend Mode" : "Weekday Mode",
+    isNightEconomy: nightEconomy,
+    dayModeLabel: nightEconomy ? "Night Economy" : (dayMode === "WEEKEND" ? "Weekend" : "Weekday"),
     timeRegimeLabel: getTimeRegimeLabel(timeRegime),
   };
 }
@@ -284,7 +293,7 @@ function softmax(scores: number[], temperature: number = 1.0): number[] {
   return expScores.map(e => e / sumExp);
 }
 
-function getConfidenceLevel(value: number): ConfidenceLevel {
+export function getConfidenceLevel(value: number): ConfidenceLevel {
   if (value >= 0.3) return "Strong";
   if (value >= 0.15) return "Medium";
   return "Weak";
@@ -330,7 +339,7 @@ export function calculateRankings(
   
   return {
     rankings: platformScores,
-    topPlatform: platformScores[0].platform,
+    topPlatform: confidence === "Weak" ? null : platformScores[0].platform,
     confidence,
     confidenceValue,
     context,

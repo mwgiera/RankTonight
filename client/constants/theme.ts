@@ -17,6 +17,7 @@ export const Colors = {
     backgroundSecondary: "#252B3D",
     backgroundTertiary: "#2A3142",
     border: "#2A3142",
+    textTertiary: "#5A5F6E",
   },
   dark: {
     text: "#FFFFFF",
@@ -34,6 +35,7 @@ export const Colors = {
     backgroundSecondary: "#252B3D",
     backgroundTertiary: "#2A3142",
     border: "#2A3142",
+    textTertiary: "#5A5F6E",
   },
 };
 

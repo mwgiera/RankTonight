@@ -1,0 +1,79 @@
+1) The biggest red flag: hidden GPS tracking + hardcoded admin password
+This is not “a feature”. This is an App Store rejection / compliance problem waiting to happen.
+
+Hidden admin mode (tap version 5 times) + background-ish GPS every 60s + password in spec is exactly the shape reviewers and security folks hate.
+
+Even if you have good intentions, it reads as covert tracking.
+
+Decision-grade fix (minimal, clean):
+
+Remove “hidden” behavior. Make it explicit + opt-in.
+
+Add a visible toggle: “Share anonymous location for improving zone model” (default OFF).
+
+If ON: send coarsened location (zone only), not raw lat/lng, and reduce frequency (e.g., on zone change / app foreground).
+
+If you must keep lat/lng: require auth + show an admin-only build flag (not in public builds). No hardcoded password shipped in client.
+
+If you ignore this, you’re building a rejection vector into your core.
+
+2) Your UI/logic contract still has a known failure mode
+You already noticed it earlier: “Top Pick” while confidence is Weak.
+
+That’s not a “UX tweak”. It’s a contract bug.
+
+Hard rule:
+
+Weak must never output a vendor pick.
+
+Weak outputs only: COLLECT + “need N logs” + a neutral default instruction.
+
+Make that rule enforced in the scorer, not in the UI.
+
+3) Dual-mode scoring is correct — but tighten the gate
+Your gate is: PILOT until 5 records; PERSONAL after 5; confidence capped by sample count. Good.
+
+Upgrade it slightly so it can’t lie:
+
+Gate on zone+time-regime samples, not only zone.
+Otherwise you’ll claim “personal” while actually extrapolating across regimes.
+
+Add a minimum data quality rule:
+
+if duration missing for most logs → PERSONAL should switch to “per-trip” mode and say it (no pretending it’s rev/hour).
+
+4) Storage: AsyncStorage is fine for MVP, but it will crack under real use
+Receipts + logs + analytics over weeks → AsyncStorage becomes fragile.
+
+Minimal upgrade path without overengineering:
+
+Use SQLite (expo-sqlite) for logs/receipts locally.
+
+Keep React Query for derived views, but compute stats from SQLite.
+
+Your “server” should be optional; right now it’s only there for tracking (which you should redesign anyway).
+
+5) Time regimes: good, but your “Weekend mode” rule is doing two jobs
+“Friday after 20:00” is not “weekend”. It’s a night economy regime.
+
+Better:
+
+Keep dayType = weekday/weekend
+
+Add nightEconomy = true/false (Fri 20:00–Sun 05:00)
+This makes the model explainable and prevents logic spaghetti.
+
+6) What I would do next (highest ROI, lowest scope)
+Enforce the confidence gating contract in dual-scorer.ts.
+
+Convert “Zones matrix” from descriptive labels into Stay-until / Leave-if rules per regime.
+
+Replace covert tracking with explicit opt-in zone-sharing (or delete it for App Store builds).
+
+If you want to move fast: paste client/lib/dual-scorer.ts and client/lib/ranking-model.ts here (or just those two files), and I’ll rewrite them into a strict contract where:
+
+Weak → never “Top Pick”
+
+Personal mode can’t claim certainty without zone+regime samples
+
+Output is always actionable in <2 seconds

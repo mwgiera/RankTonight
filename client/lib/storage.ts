@@ -16,6 +16,7 @@ export interface UserPreferences {
   name: string;
   preferredZones: string[];
   notificationsEnabled: boolean;
+  dataSharingEnabled: boolean;
   temperature: number;
   scoringMode: ScoringMode;
 }
@@ -24,6 +25,7 @@ const DEFAULT_PREFS: UserPreferences = {
   name: "Driver",
   preferredZones: [],
   notificationsEnabled: false,
+  dataSharingEnabled: false,
   temperature: 1.0,
   scoringMode: "PILOT",
 };
