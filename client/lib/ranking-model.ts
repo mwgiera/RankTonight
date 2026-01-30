@@ -260,7 +260,7 @@ function calculateDemand(zoneCategory: ZoneCategory, date: Date): number {
   const day = date.getDay();
   const hour = date.getHours();
   
-  const dayMode = getDayType(day, hour);
+  const dayMode = getDayType(day);
   const timeRegime = getTimeRegime(hour);
   
   const seasonality = SEASONALITY[zoneCategory][dayMode][timeRegime];
