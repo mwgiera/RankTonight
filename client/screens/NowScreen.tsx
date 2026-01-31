@@ -23,6 +23,7 @@ import { ConfidenceBar } from "@/components/ConfidenceBar";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { PlatformCard } from "@/components/PlatformCard";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
+import { MoneyProofCard } from "@/components/MoneyProofCard";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing, Colors } from "@/constants/theme";
 import {
@@ -34,6 +35,7 @@ import {
   type PlatformScore,
 } from "@/lib/ranking-model";
 import { getSelectedZone, setSelectedZone, getEarningsLogs, getScoringMode, getUserPreferences } from "@/lib/storage";
+import { getMoneyProofCounters, type MoneyProofCounters } from "@/lib/database";
 import { getApiUrl } from "@/lib/query-client";
 import { calculateDualRanking, type DualRankingResult, type ScoringMode } from "@/lib/dual-scorer";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -54,6 +56,7 @@ export default function NowScreen() {
   const [showZonePicker, setShowZonePicker] = useState(false);
   const [scoringMode, setScoringModeState] = useState<ScoringMode>("PILOT");
   const [locationPermission, setLocationPermission] = useState<boolean | null>(null);
+  const [moneyProof, setMoneyProof] = useState<MoneyProofCounters | null>(null);
 
   const pulseScale = useSharedValue(1);
 
@@ -61,8 +64,18 @@ export default function NowScreen() {
     useCallback(() => {
       loadData();
       detectLocationZone();
+      loadMoneyProof();
     }, [])
   );
+
+  const loadMoneyProof = async () => {
+    try {
+      const counters = await getMoneyProofCounters();
+      setMoneyProof(counters);
+    } catch (error) {
+      console.log("Failed to load money proof:", error);
+    }
+  };
 
   const detectLocationZone = async () => {
     if (RNPlatform.OS === "web") return;
@@ -151,6 +164,7 @@ export default function NowScreen() {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await loadData();
+    await loadMoneyProof();
     setRefreshing(false);
   }, []);
 
@@ -439,6 +453,17 @@ export default function NowScreen() {
             </Animated.View>
           </>
         )}
+
+        {moneyProof ? (
+          <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+            <MoneyProofCard
+              baselineHourly={moneyProof.baselineHourly}
+              followedHourly={moneyProof.followedHourly}
+              baselineCount={moneyProof.baselineCount}
+              followedCount={moneyProof.followedCount}
+            />
+          </Animated.View>
+        ) : null}
       </ScrollView>
 
       <FloatingActionButton

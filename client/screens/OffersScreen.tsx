@@ -19,7 +19,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/lib/language-context";
 import { getAllZoneNames, getZoneName } from "@/lib/zones";
-import { saveOffer, getActiveSession } from "@/lib/database";
+import { saveOffer, getActiveSession, recordFeedback } from "@/lib/database";
 import { scoreOffer, formatRecommendationForDisplay, type Recommendation, type ScoreComponents } from "@/lib/scorer";
 import type { Platform } from "@/lib/ranking-model";
 
@@ -48,6 +48,8 @@ export default function OffersScreen() {
     scoreComponents: ScoreComponents;
   } | null>(null);
   const [showZonePicker, setShowZonePicker] = useState<"pickup" | "dest" | null>(null);
+  const [lastOfferId, setLastOfferId] = useState<number | null>(null);
+  const [feedbackGiven, setFeedbackGiven] = useState(false);
 
   const isFormValid = destZone && fare && etaMinutes && parseFloat(fare) > 0 && parseFloat(etaMinutes) > 0;
 
@@ -70,7 +72,7 @@ export default function OffersScreen() {
       const { recommendation, scoreComponents } = await scoreOffer(offerInput);
       
       const session = await getActiveSession();
-      await saveOffer(
+      const savedOffer = await saveOffer(
         {
           ...offerInput,
           recommendation: {
@@ -82,6 +84,8 @@ export default function OffersScreen() {
         session?.id
       );
 
+      setLastOfferId(savedOffer.id);
+      setFeedbackGiven(false);
       setResult({ recommendation, scoreComponents });
       Haptics.notificationAsync(
         recommendation.action === "TAKE" || recommendation.action === "COLLECT"
@@ -101,7 +105,22 @@ export default function OffersScreen() {
     setEtaMinutes("");
     setDistanceKm("");
     setResult(null);
+    setLastOfferId(null);
+    setFeedbackGiven(false);
   }, []);
+
+  const handleFeedback = useCallback(async (feedback: "FOLLOWED" | "IGNORED") => {
+    if (!lastOfferId) return;
+    
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await recordFeedback(lastOfferId, feedback);
+      setFeedbackGiven(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Failed to record feedback:", error);
+    }
+  }, [lastOfferId]);
 
   const renderZonePicker = () => {
     if (!showZonePicker) return null;
@@ -231,6 +250,43 @@ export default function OffersScreen() {
             </View>
           </View>
         )}
+
+        {!feedbackGiven && result.recommendation.mode !== "COLLECT" ? (
+          <View style={styles.feedbackSection}>
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
+              Did you follow this advice?
+            </ThemedText>
+            <View style={styles.feedbackRow}>
+              <Pressable
+                style={[styles.feedbackButton, { backgroundColor: Colors.dark.success + "20", borderColor: Colors.dark.success }]}
+                onPress={() => handleFeedback("FOLLOWED")}
+                testID="button-feedback-followed"
+              >
+                <Feather name="check" size={20} color={Colors.dark.success} />
+                <ThemedText style={{ color: Colors.dark.success, marginLeft: Spacing.xs, fontWeight: "600" }}>
+                  Yes
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                style={[styles.feedbackButton, { backgroundColor: Colors.dark.danger + "20", borderColor: Colors.dark.danger }]}
+                onPress={() => handleFeedback("IGNORED")}
+                testID="button-feedback-ignored"
+              >
+                <Feather name="x" size={20} color={Colors.dark.danger} />
+                <ThemedText style={{ color: Colors.dark.danger, marginLeft: Spacing.xs, fontWeight: "600" }}>
+                  No
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        ) : feedbackGiven ? (
+          <View style={[styles.feedbackConfirm, { backgroundColor: Colors.dark.success + "20" }]}>
+            <Feather name="check-circle" size={16} color={Colors.dark.success} />
+            <ThemedText style={{ color: Colors.dark.success, marginLeft: Spacing.sm }}>
+              Thanks for your feedback!
+            </ThemedText>
+          </View>
+        ) : null}
 
         <Pressable
           style={[styles.resetButton, { borderColor: theme.border }]}
@@ -498,5 +554,29 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     alignItems: "center",
+  },
+  feedbackSection: {
+    marginTop: Spacing.xl,
+  },
+  feedbackRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  feedbackButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+  },
+  feedbackConfirm: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.xl,
   },
 });
