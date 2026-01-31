@@ -10,6 +10,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Slider from "@react-native-community/slider";
+import { Platform } from "react-native";
 
 import { ThemedText } from "@/components/ThemedText";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -24,7 +25,13 @@ import {
   getEarningsLogs,
   type UserPreferences,
 } from "@/lib/storage";
+import {
+  deleteAllData as deleteDbData,
+  exportAllDataAsCsv,
+} from "@/lib/database";
 import { useLanguage } from "@/lib/language-context";
+import * as Sharing from "expo-sharing";
+import { Paths, File } from "expo-file-system";
 import { LANGUAGES, type Language } from "@/lib/translations";
 import type { ScoringMode } from "@/lib/dual-scorer";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -113,12 +120,52 @@ export default function ProfileScreen() {
           style: "destructive",
           onPress: async () => {
             await clearAllData();
+            await deleteDbData();
             await loadPrefs();
+            await loadRecordCount();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           },
         },
       ]
     );
+  };
+
+  const handleExportData = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const csv = await exportAllDataAsCsv();
+      const filename = `driveRadar_export_${new Date().toISOString().split("T")[0]}.csv`;
+      
+      if (Platform.OS === "web") {
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        Alert.alert("Export Complete", `Data exported as ${filename}`);
+      } else {
+        const file = new File(Paths.cache, filename);
+        file.write(csv);
+        
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(file.uri, {
+            mimeType: "text/csv",
+            dialogTitle: "Export DriveRadar Data",
+          });
+        } else {
+          Alert.alert("Export Complete", `Data saved to ${filename}`);
+        }
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Export error:", error);
+      Alert.alert("Export Failed", "Could not export data. Please try again.");
+    }
   };
 
   const handleVersionTap = () => {
@@ -398,6 +445,36 @@ export default function ProfileScreen() {
               Helps improve zone models by sharing your current zone anonymously.
             </ThemedText>
           </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(250).duration(300)}>
+          <ThemedText
+            type="h2"
+            style={{ marginTop: Spacing["2xl"], marginBottom: Spacing.md }}
+          >
+            Data & Privacy
+          </ThemedText>
+
+          <Pressable
+            testID="button-export-data"
+            onPress={handleExportData}
+            style={[
+              styles.settingCard,
+              styles.settingRow,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+          >
+            <View style={styles.settingInfo}>
+              <Feather name="download" size={20} color={Colors.dark.primary} />
+              <View style={{ marginLeft: Spacing.md }}>
+                <ThemedText type="body">Export Your Data</ThemedText>
+                <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                  Download all offer history as CSV
+                </ThemedText>
+              </View>
+            </View>
+            <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+          </Pressable>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(300).duration(300)}>
