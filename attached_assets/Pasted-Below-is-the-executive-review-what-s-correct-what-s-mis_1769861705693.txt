@@ -1,0 +1,137 @@
+Below is the executive review: what’s correct, what’s missing, what to change.
+
+What Replit got right (keep)
+SQLite first (sessions, dwells, offers) — correct. AsyncStorage will not survive real usage.
+
+Shift Session as the backbone (START/STOP + dwell segments) — correct. This is your “automatic logging” without platform integration.
+
+Recommendation contract + confidence gating — correct. Your product lives or dies on: Weak never pretends it knows.
+
+Phased plan — correct ordering.
+
+Critical gaps (fix these or you’ll stall)
+1) Zone detection is underspecified (and it’s the hard part)
+They wrote detectZone(lat,lng) and tests calling it with two Kraków coords. That’s hand-wavy unless you implement real geometry.
+
+Decision: for “Kraków coarse districts”, do one of these:
+
+Geofences by polygons (GeoJSON per district) + point-in-polygon on-device
+
+or H3 grid mapping (coarse hexes grouped into zones)
+
+or circle-based approximations (fastest, least accurate, but acceptable for MVP)
+
+If you don’t choose one explicitly, “Shift Session” collapses.
+
+Minimal MVP choice: circle-based zones (center+radius) today; polygons later.
+
+2) They’re still mixing “driver value” and “model feeding”
+Your earlier requirement: automatic trip tracking like Google Maps, sent to server to feed model, then deleted.
+This plan: local SQLite + optional aggregates upload. That’s better for App Store and trust, but it must be made explicit:
+
+Hard product rule:
+
+Default: on-device only.
+
+Optional: upload aggregates (zone/time bucket features only).
+
+Never upload raw GPS trace in public builds.
+
+This avoids you building a tracking system disguised as a driver tool.
+
+3) Offer table is overstuffed and under-normalized
+offers currently contains: recommendation, confidence, feedback, actuals. That’s fine, but you need one extra separation:
+
+Add a recommendations table (or at least a JSON field) if you want deterministic replays. Otherwise future scorer changes will make historical “recommendation” meaningless.
+
+Minimal fix: keep in offers, but store:
+
+modelVersion (string)
+
+scoreComponents (json)
+so you can compare before/after and prove $$.
+
+4) “Stats” table is undefined in update semantics
+They created a stats table but didn’t specify whether it’s:
+
+materialized aggregates updated on each insert
+
+or computed on demand
+
+If you try to maintain it incrementally in SQLite, you must define:
+
+update triggers or repository update logic
+
+id strategy and uniqueness constraints
+
+Minimal MVP decision: compute stats on demand (SQL queries grouped by zone/bucket/platform) and add materialization later.
+
+Technical footguns (fix now, not later)
+SQLite specifics they forgot
+Enable FK constraints: PRAGMA foreign_keys = ON; every connection/session. Otherwise your FK tests are meaningless.
+
+Consider indexes (you’ll need these quickly):
+
+offers(createdAt)
+
+offers(destZone, timeRegime, dayType, platform)
+
+zone_dwells(sessionId)
+
+status check is fine, but you also want “active session singleton” rule.
+
+Their Jest tests have errors / bad assumptions
+toContain("sessions", "zone_dwells"... ) is not how Jest works. You need separate expects, or arrayContaining.
+
+“simulate background” by setting AppState.currentState = "background" won’t trigger listeners; you must mock AppState.addEventListener and fire it.
+
+Expo Go / web confusion is not addressed strongly enough
+They do have a “web fallback for GPS” test. Good. But you must make it a hard UX rule:
+
+If Platform.OS === "web" → show “Use Expo Go / device build for live GPS” and disable shift tracking.
+
+The one correction that makes this “driver-grade”
+Right now, their plan still allows a lot of “nice screens”. The driver needs one loop that prints money.
+
+So enforce this:
+
+Now screen output must always be one of:
+TAKE / DECLINE (offer provided)
+
+WAIT / MOVE (no offer, just zone regime)
+
+COLLECT (weak confidence)
+
+No other mode. No “Top pick” unless confidence is MEDIUM+.
+
+Priority order for your situation (day 2 taxi, need proof fast)
+If you want “worth showing” quickly, do this ordering (better than Replit’s phase order):
+
+Shift START/STOP + current zone (even if zone detection is crude circles)
+
+Offer Capture → TAKE/DECLINE using effective hourly (works with 0 history)
+
+COLLECT mode + 1-tap FOLLOWED/IGNORED
+
+Baseline vs Followed counters (this is your $$ proof)
+
+Receipts later (nice-to-have, slows you down)
+
+Net assessment
+Replit’s plan is 80% correct. The 20% missing is exactly the 20% that decides whether the product works:
+
+real zone detection method
+
+explicit data policy + no raw trace uploads
+
+stats semantics (on-demand vs materialized)
+
+tighter Now-screen contract
+
+If you want, paste only these two files and I’ll give you a concrete refactor target (interfaces + exact functions):
+
+client/lib/dual-scorer.ts
+
+your detectZone implementation (or wherever you map GPS → zone)
+
+Then we lock the contract so it can’t regress into “looks nice / does nothing.”

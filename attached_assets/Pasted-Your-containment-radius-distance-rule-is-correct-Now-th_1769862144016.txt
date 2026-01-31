@@ -1,0 +1,111 @@
+Your containment = radius - distance rule is correct. Now the next precision fix is stability under GPS noise. Without it, your zones will flip-flop at boundaries, and everything downstream (dwells, buckets, “Now” actions) becomes garbage.
+
+Next precision fix: hysteresis + accuracy gating + stable ordering
+1) Don’t rely on Object.entries() order
+JS object iteration is usually insertion-ordered, but you don’t build a system on “usually”.
+
+Lock the order by defining zones as an array:
+
+type ZoneDef = { id: string; center: [number, number]; radiusKm: number };
+
+export const KRAKOW_ZONES: ZoneDef[] = [
+  { id: "stare-miasto", center: [50.0614, 19.9372], radiusKm: 1.2 },
+  { id: "kazimierz", center: [50.0508, 19.9447], radiusKm: 0.8 },
+  // ...
+];
+Then “stable array order” is real.
+
+2) Add accuracy gating (prevents false zone changes)
+If the GPS fix is low quality, you do not change zones.
+
+Rule (MVP):
+
+if accuracyMeters > 80 → return previous zone (or null if none)
+
+3) Add hysteresis / dwell confirmation
+A single noisy point should not switch zones.
+
+Rule (decision-grade):
+
+zone change only if the new candidate is stable for N seconds (e.g., 25s), OR if containment margin beats the current zone by a clear threshold.
+
+Here is a minimal, correct stateful wrapper:
+
+export type ZoneState = {
+  currentZoneId: string | null;
+  pendingZoneId: string | null;
+  pendingSinceTs: number | null;
+};
+
+const STABLE_MS = 25_000;
+const ACCURACY_MAX_M = 80;
+
+export function detectZoneOnce(
+  lat: number,
+  lng: number,
+  zones: ZoneDef[]
+): string | null {
+  const candidates: Array<{ id: string; containment: number; idx: number }> = [];
+
+  zones.forEach((z, idx) => {
+    const d = haversine(lat, lng, z.center[0], z.center[1]); // km
+    if (d <= z.radiusKm) {
+      candidates.push({ id: z.id, containment: z.radiusKm - d, idx });
+    }
+  });
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => (b.containment - a.containment) || (a.idx - b.idx));
+  return candidates[0].id;
+}
+
+export function detectZoneWithHysteresis(
+  lat: number,
+  lng: number,
+  accuracyM: number,
+  nowTs: number,
+  zones: ZoneDef[],
+  state: ZoneState
+): ZoneState {
+  // Accuracy gate
+  if (accuracyM > ACCURACY_MAX_M) return state;
+
+  const candidate = detectZoneOnce(lat, lng, zones);
+
+  // No candidate: do not guess; keep current (avoid churn)
+  if (!candidate) return { ...state, pendingZoneId: null, pendingSinceTs: null };
+
+  // Same as current: clear pending
+  if (candidate === state.currentZoneId) {
+    return { ...state, pendingZoneId: null, pendingSinceTs: null };
+  }
+
+  // Start or continue pending
+  if (state.pendingZoneId !== candidate) {
+    return { ...state, pendingZoneId: candidate, pendingSinceTs: nowTs };
+  }
+
+  // Confirm after stable window
+  if (state.pendingSinceTs && (nowTs - state.pendingSinceTs) >= STABLE_MS) {
+    return { currentZoneId: candidate, pendingZoneId: null, pendingSinceTs: null };
+  }
+
+  return state;
+}
+That one change prevents your “zone_dwells” table from becoming fiction.
+
+The next precision fix after that (queue it)
+Once zones are stable, the next failure mode is time bucket correctness:
+
+enforce one canonical timeRegime/dayType function in shared code
+
+store createdAtMs consistently (ms everywhere)
+
+and never let “weekend after Fri 20:00” leak into dayType without an explicit rule
+
+But hysteresis + accuracy gating is the immediate “make it real” step.
+
+If you paste your current haversine() + where you call watchPositionAsync, I’ll give you the exact integration wiring (sampling interval, distance threshold, and how to write dwells without battery drain).
+
+

@@ -1,0 +1,110 @@
+Below is the Build‑mode spec you should implement next, with zero ambiguity.
+
+1) Canonical time bucket module (must exist, must be single source)
+Create: client/lib/time-buckets.ts
+
+Requirements (hard)
+Uses local device time (Kraków).
+
+Outputs stable IDs (no display text).
+
+Same logic for offers and dwells.
+
+Weekend logic is explicit and deterministic.
+
+Output types
+export type TimeRegime = "morning-rush" | "midday" | "evening-rush" | "late-night" | "overnight";
+export type DayType = "weekday" | "weekend";
+export type Bucket = { timeRegime: TimeRegime; dayType: DayType; weekendMode: boolean };
+Implementation (drop-in)
+export function getBucket(tsMs: number): Bucket {
+  const d = new Date(tsMs);
+  const day = d.getDay(); // 0 Sun ... 6 Sat
+  const hour = d.getHours();
+  const minute = d.getMinutes();
+  const hm = hour + minute / 60;
+
+  // Time regimes
+  const timeRegime =
+    hm >= 5 && hm < 9 ? "morning-rush" :
+    hm >= 9 && hm < 15 ? "midday" :
+    hm >= 15 && hm < 19 ? "evening-rush" :
+    (hm >= 19 && hm < 24) || (hm >= 0 && hm < 1) ? "late-night" :
+    "overnight"; // 01:00-05:00
+
+  // “Weekend mode” per your rule: Sat/Sun + Fri after 20:00
+  const weekendMode =
+    day === 0 || day === 6 || (day === 5 && hm >= 20);
+
+  const dayType: DayType = weekendMode ? "weekend" : "weekday";
+  return { timeRegime, dayType, weekendMode };
+}
+Why now: every persisted row must carry (timeRegime, dayType) computed by this exact function, not re-derived ad hoc.
+
+2) You must persist bucket IDs on write (do not compute later)
+Offers table (MVP)
+Add these columns now:
+
+timeRegime TEXT NOT NULL
+
+dayType TEXT NOT NULL
+
+When saving an offer:
+
+call getBucket(Date.now())
+
+write timeRegime/dayType into the offer row
+
+Zone dwells
+You have two choices; pick one:
+
+Option A (simple, good enough): bucket dwells by startTs
+
+store timeRegime/dayType on the dwell segment when it starts
+
+Option B (correct across regime boundary): split a dwell if the bucket changes mid-segment
+This is more work; do it later if needed. For MVP, Option A is acceptable.
+
+3) GPS integration: your watchPosition config is fine, but incomplete
+Your planned config:
+
+Balanced, timeInterval: 10s, distanceInterval: 50m is correct for taxi battery/utility.
+
+Add 3 operational rules:
+
+Stop subscription on AppState background (Expo Go and iOS will otherwise do weird things).
+
+Apply accuracy gating (accuracyM > 80 => do not change zones).
+
+Implement hysteresis state exactly as you outlined.
+
+4) Dwell tracking: you need a writer, not just a zoneState
+Hysteresis gives you currentZoneId. You still need to write segments deterministically:
+
+Dwell writer rules
+On shift start: open a dwell with current zone only once it’s known.
+
+On confirmed zone change: close previous dwell (endTs = now), open new dwell.
+
+If zone becomes null: do not close the current dwell immediately; just stop opening new ones until stable zone returns. (Avoid churn.)
+
+This is where most MVPs break. Do it explicitly.
+
+5) Immediate next plan update (you should add this)
+Add a new phase between “Shift Session System” and “Offer Capture”:
+
+Phase 2.5: Canonical Buckets + Persistence
+Implement time-buckets.ts
+
+Add timeRegime/dayType columns
+
+Ensure all writes use canonical buckets
+
+Update on-demand SQL to group by persisted columns (faster + consistent)
+
+This prevents later refactors from becoming a data migration nightmare.
+
+Direct answer to your question
+Yes — add time bucket correctness to the plan now, as a hard dependency of stats + scorer confidence. Otherwise “sampleCount >= 5” will be meaningless because samples will be bucketed inconsistently.
+
+If you want the next precision fix after buckets: it’s a single “canonical timestamp policy” (ms everywhere, named *_Ms, never seconds) plus one helper nowMs() used everywhere. That removes an entire class of bugs.

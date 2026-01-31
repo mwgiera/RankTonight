@@ -1,0 +1,251 @@
+0) Stack & Project Setup
+Tech
+Frontend: Expo SDK 54, React Native, TypeScript
+
+Navigation: React Navigation (bottom tabs + native stack)
+
+Storage: SQLite via expo-sqlite (NOT AsyncStorage for logs)
+
+Location: expo-location with foreground watchPositionAsync
+
+Charts: lightweight (victory-native or minimal custom)
+
+Optional (phase 2): server (Express) for sync of aggregates only
+
+App tabs
+Now (decision output, 2 seconds to action)
+
+Offers (fast offer capture, 6–10 sec)
+
+Zones (zone rules: stay-until / leave-if)
+
+Receipts (import + parse)
+
+Profile (targets, costs, privacy, export)
+
+1) Core Product Loop (must ship)
+A) Shift Session (1 tap)
+START SHIFT / STOP SHIFT
+
+While active:
+
+watchPositionAsync in foreground (no background)
+
+detect zone transitions (coarse Kraków districts)
+
+track idle time, movement, time-in-zone
+
+Store locally in SQLite:
+
+session start/end
+
+zone dwell segments: (zoneId, startTs, endTs, distanceEst)
+
+No raw polylines persisted.
+
+Derive features:
+
+timeRegime, dayType, zoneDwellMinutes, idleMinutes
+
+B) Offer Capture (fast)
+Single screen. Minimal typing.
+Fields:
+
+Platform: Uber | Bolt | FreeNow
+
+Pickup zone (default = current)
+
+Destination zone (required)
+
+Fare (required)
+
+ETA minutes (required)
+
+Optional: distance km, surge flag, note
+Action:
+
+SAVE → immediate recommendation (TAKE / DECLINE / WAIT / MOVE)
+
+C) Recommendation Contract (non-negotiable)
+The scorer returns one of these modes:
+
+type Confidence = "WEAK" | "MEDIUM" | "STRONG";
+type Action = "TAKE" | "DECLINE" | "WAIT" | "MOVE" | "COLLECT";
+
+type Recommendation =
+  | { mode: "PICK"; action: "TAKE"|"DECLINE"; platformHint?: "UBER"|"BOLT"|"FREENOW"; confidence: "MEDIUM"|"STRONG"; reasons: string[]; stayUntilMin?: number; leaveIfMin?: number; suggestedZone?: string; }
+  | { mode: "GUIDE"; action: "WAIT"|"MOVE"; confidence: "MEDIUM"|"STRONG"; reasons: string[]; stayUntilMin: number; leaveIfMin: number; suggestedZone?: string; }
+  | { mode: "COLLECT"; action: "COLLECT"; confidence: "WEAK"; neededSamples: number; instruction: string; };
+HARD RULE: if confidence === WEAK → no vendor pick and no “Top Pick”.
+
+2) Scoring Model (driver-grade, explainable, money-aligned)
+Inputs
+Offer: fare, ETA minutes, pickup zone, destination zone, platform
+
+Driver settings: targetHourly, costPerKm, riskPreference (0–1)
+
+History stats: zone/time bucketed performance
+
+Time buckets (Kraków coarse)
+regimes: 05–09, 09–15, 15–19, 19–01, 01–05
+
+dayType: weekday | weekend (weekend includes Fri 20:00+)
+
+Stats tracked (per platform, per dest zone, per bucket)
+avg rev/hour
+
+avg next-offer wait (if captured)
+
+acceptance outcome ratio
+
+sampleCount
+
+recency weight (30-day decay)
+
+Offer score (net hourly)
+estimate costs: costPerKm * (distanceKm || ETAmin * 0.45)
+
+effectiveHourly = (fare - estCosts) / ETAmin * 60
+
+Post-destination expectancy (discounted)
+from history: postDestHourly
+
+discount aggressively when low samples:
+
+sampleCount < 5 ⇒ confidence cap 35 and postDest weight near-zero
+
+5–15 ⇒ confidence 35–65
+
+15 ⇒ up to 85
+
+Total score
+early stage: 0.8 * effectiveHourly + 0.2 * postDestHourly
+
+later stage (after enough data): allow 0.7/0.3
+
+Decision
+TAKE if totalScore >= targetHourly * (1 - tolerance)
+
+DECLINE otherwise
+
+If no offer provided (idle mode): produce WAIT/MOVE based on zone dwell + expected wait
+
+Confidence gating
+WEAK if sampleCount < 5 for destZone + timeRegime + dayType
+
+MEDIUM if 5–15
+
+STRONG if >15 and recency strong
+
+3) Zone Engine (turns “labels” into decisions)
+Each zone has:
+
+primaryBias (daytime/late-night/commuter/mixed)
+
+defaultStayUntilMin
+
+defaultLeaveIfMin
+
+suggestedNextZones (2 options)
+
+Now screen uses zone engine as fallback when confidence is weak:
+
+“COLLECT: log 3 offers here” + “WAIT up to 6 min, then MOVE to X”
+
+4) Kraków Coarse Zones (seed, must include)
+Seed zones (18):
+1 Stare Miasto
+2 Kazimierz
+3 Grzegórzki
+4 Podgórze
+5 Podgórze Duchackie
+6 Krowodrza
+7 Prądnik Biały
+8 Prądnik Czerwony
+9 Czyżyny
+10 Mistrzejowice
+11 Bieńczyce
+12 Nowa Huta
+13 Bronowice
+14 Zwierzyniec
+15 Dębniki
+16 Łagiewniki–Borek Fałęcki
+17 Ruczaj
+18 Airport / Balice
+
+Implement a zoneId -> name map and keep UI selection 2 taps max.
+
+5) “Money Proof” Instrumentation (day-2 credibility)
+Add two counters on Now:
+
+Baseline hourly (last 10 rides / last 2 hours)
+
+With-followed-recs hourly (rides where user tapped “FOLLOWED”)
+
+Require a one-tap feedback after each recommendation:
+
+FOLLOWED / IGNORED
+
+optional actual fare/time
+
+This creates measurable uplift without needing platform data.
+
+6) Receipts (optional but strong)
+Receipt parser supports pasted email text:
+
+detect provider by pattern
+
+extract: date, amount, duration (if present)
+
+if duration missing: store per-trip only, mark “duration unknown”
+
+Import writes to SQLite and updates stats.
+
+7) Privacy & Data Controls (must ship, minimal)
+Profile toggles:
+
+“Share anonymous aggregates to improve model” (default OFF)
+If ON:
+
+upload only (zoneId, timeBucket, platform, hourlyBucket, sampleCount)
+
+no lat/lng, no raw traces
+
+“Delete my data” wipes local + server tokenized aggregates
+
+8) Non-negotiable UX requirements
+Now screen shows one action: TAKE / DECLINE / WAIT / MOVE
+
+If confidence WEAK → only COLLECT + simple rule
+
+No “Top Pick” when WEAK
+
+“Offer entry” must be <10 seconds
+
+All text: everyday language, no jargon
+
+9) Implementation Plan (Agent must execute)
+Initialize Expo RN TS app + navigation
+
+Add SQLite schema + repository layer
+
+Implement Shift Session (foreground GPS watch + zone detection)
+
+Implement Offer Capture screen + save
+
+Implement Scoring engine + Recommendation contract + tests
+
+Implement Now screen rendering modes correctly
+
+Implement Zones seed + selector UI
+
+Add analytics counters (baseline vs followed)
+
+Add receipts parser (paste text)
+
+Add export/delete + privacy toggle
+
+Ensure builds run on device via Expo Go; document steps
+
+Definition of done: A driver can start a shift, see their current zone, enter an offer, get an actionable recommendation with correct confidence gating, and see measurable “baseline vs followed” counters within 1 day of use.
+
