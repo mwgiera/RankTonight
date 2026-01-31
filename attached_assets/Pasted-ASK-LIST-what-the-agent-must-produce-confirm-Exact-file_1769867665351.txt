@@ -1,0 +1,258 @@
+ASK LIST (what the agent must produce / confirm)
+Exact file list changed (paths + short summary per file)
+
+Canonical modules implemented (must exist, single source of truth):
+
+client/lib/time-buckets.ts
+
+client/lib/zones.ts (KRAKOW_ZONES array + detectZoneOnce + hysteresis wrapper)
+
+client/lib/recommendation-contract.ts (types)
+
+client/lib/scoring.ts (pure functions + contract enforcement)
+
+SQLite schema + migration:
+
+createdAtMs policy (ms everywhere)
+
+offers.timeRegime/dayType persisted on write
+
+indices + FK pragma + “single active session” invariant
+
+ShiftSession:
+
+watchPositionAsync wired
+
+hysteresis + accuracy gating implemented
+
+dwell writer implemented (open/close segments deterministically)
+
+Now Screen contract:
+
+outputs ONLY TAKE/DECLINE or WAIT/MOVE or COLLECT
+
+“WEAK => COLLECT‑only” enforced in scorer, not UI
+
+Web fallback:
+
+Platform.OS === web disables GPS + SQLite-dependent flows cleanly (no silent hang)
+
+Money Proof:
+
+baseline vs followed counters computed deterministically
+
+feedback capture (FOLLOWED/IGNORED) persisted
+
+2) PRE‑IMPLEMENTATION PLAN (sequenced, dependency-correct)
+Phase 0 — Policy locks (do first)
+Timestamp policy: *_Ms only. No seconds anywhere.
+
+Bucket policy: getBucket(tsMs) is the ONLY source of timeRegime/dayType.
+
+Recommendation policy: WEAK => COLLECT-only (hard rule).
+
+Phase 1 — Canonical modules
+Implement time-buckets.ts
+
+Implement zones.ts
+
+zones as array (stable order)
+
+circle detection + deterministic overlap resolution
+
+hysteresis + accuracy gating wrapper
+
+Phase 2 — SQLite foundation
+Create schema + repo layer
+
+PRAGMA foreign_keys = ON on every connection
+
+Add indexes
+
+Add “single active session” invariant
+
+Phase 3 — Shift session + dwell writer
+START/STOP shift
+
+Foreground GPS watch
+
+ZoneState hysteresis integration
+
+Dwell open/close rules
+
+Phase 4 — Offer capture + scoring contract
+Offers screen fast-entry
+
+On SAVE:
+
+compute bucket via canonical function
+
+insert offer row
+
+call scorer (pure) and return Recommendation
+
+Phase 5 — Now screen refactor
+Idle: show GUIDE (WAIT/MOVE) or COLLECT
+
+Offer review: show TAKE/DECLINE or COLLECT
+
+Remove legacy “Top Pick ranking” from idle mode
+
+Phase 6 — Money proof + feedback
+FOLLOWED/IGNORED buttons
+
+counters: baseline vs followed
+
+Phase 7 — Receipts + privacy + export (optional but clean)
+receipts parse -> offers insert
+
+export CSV + delete all data
+
+web fallbacks for file APIs
+
+3) DEFINITION OF DONE (Checklist)
+Shift starts/stops with 1 tap; session persisted
+
+Current zone resolves within 3 GPS fixes (≤30s) on device
+
+No zone flapping at borders (hysteresis proven)
+
+Dwell segments written correctly (no duplicates, no negative durations)
+
+Offer entry <10 seconds on device
+
+Recommendation shows immediately after save
+
+WEAK never outputs vendor pick / Top Pick (contract enforced at scorer)
+
+Baseline vs followed counters update correctly
+
+Feedback persists and affects counters
+
+Web build does not hang: shows “device required” messaging for GPS/SQLite
+
+Export CSV works (native share / web download)
+
+Delete data wipes SQLite (and resets in-memory caches)
+
+4) TESTS — Integrity (data correctness, invariants)
+DB integrity
+Schema init creates required tables + indices
+
+PRAGMA foreign_keys enabled
+
+“single active session” invariant:
+
+starting a new shift auto-closes previous active session OR blocks start
+
+Dwell integrity
+Dwell open/close sequence:
+
+open first dwell when first valid zone appears
+
+close old dwell on confirmed zone change
+
+do not churn on null zone (unknown)
+
+Durations are valid:
+
+endTsMs >= startTsMs
+
+no overlapping dwells in same session
+
+Timestamp integrity
+All persisted timestamps are ms (>= 1e12 heuristic)
+
+Queries use ms consistently (no strftime seconds bug)
+
+Scoring integrity
+scoreComponents stored with modelVersion
+
+scoringMode persisted (pilot|personal)
+
+scorer is pure and deterministic given same inputs
+
+5) TESTS — Functional Requirements
+Zone detection + hysteresis
+Overlap resolution: picks max containment, stable tie by array index
+
+Accuracy gating: accuracy > threshold => no zone change
+
+Hysteresis: new zone must persist STABLE_MS before switching
+
+No-candidate: returns null (unknown), does not guess
+
+Buckets
+getBucket() returns correct regime boundaries
+
+Fri >= 20:00 triggers weekendMode if you keep that rule
+
+offer inserts persist timeRegime/dayType from canonical function
+
+Recommendation contract
+sampleCount < 5 => returns {mode:"COLLECT", confidence:"WEAK"} only
+
+sampleCount >= 5 => returns PICK or GUIDE with MEDIUM/STRONG
+
+Offer present => TAKE/DECLINE only
+
+No offer => WAIT/MOVE only
+
+UI renders strictly by mode
+
+Money proof
+baseline hourly computed from last N offers
+
+followed hourly computed only from offers marked FOLLOWED
+
+counters stable across app restarts (SQLite persists)
+
+6) TESTS — Platform Limitations vs Feature Functionality
+Web platform
+SQLite unavailable => repo functions return safe fallbacks, no infinite spinners
+
+GPS features disabled with explicit banner:
+
+“Live GPS requires device build (Expo Go / Dev Build)”
+
+Export CSV works via blob download
+
+No attempt to call native share APIs on web
+
+Expo Go constraints
+No custom native modules required beyond Expo SDK defaults
+
+Location permission flow correct:
+
+denied => actionable message
+
+granted => watchPosition starts and stops
+
+AppState behavior
+On background => stop location watch subscription
+
+On foreground => resume if shift active
+
+7) Remaining precision fixes (the ones that prevent “silently wrong”)
+Stable zone order: zones must be an array; never rely on Object.entries ordering
+
+Hysteresis + accuracy gating: without it, dwell + stats become fiction
+
+Canonical buckets on write: never recompute buckets later from timestamps for stats/scoring
+
+ms-only timestamps: enforce naming + unit; fix every SQL filter accordingly
+
+Stats semantics: MVP = compute on demand; if materializing later, define update rules explicitly
+
+Now contract enforced in scorer: UI must not contain business rules (“if weak then…”)
+
+Unknown zone rule: no guessing; keep last stable zone unless confirmed change
+
+Distance estimation policy: if distance missing, use ETA * speed; store derived distance in scoreComponents so results are explainable
+
+Model versioning: persist modelVersion + scoringMode + scoreComponents for audit and “$$ proof”
+
+Web fallback is mandatory: otherwise you get phantom GPS/SQLite “bugs” that are just platform limits
+
+Final directive to Replit (one sentence)
+Implement only what passes these invariants and tests; anything that “works” but violates the contract (especially WEAK producing Top Pick, bucket drift, or zone flapping) is a failed build.

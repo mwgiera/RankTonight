@@ -23,7 +23,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { getIdleRecommendation, type Recommendation, formatRecommendationForDisplay } from "@/lib/scorer";
 import { getBucket } from "@/lib/time-buckets";
 import { getZoneById } from "@/lib/zones";
-import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+import type { MainTabParamList } from "@/navigation/MainTabNavigator";
 import { useLanguage } from "@/lib/language-context";
 import { getTimeRegimeLabelTranslated, getDayModeLabelTranslated } from "@/lib/translations";
 
@@ -32,7 +32,7 @@ export default function NowScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<any>();
   const { language, t } = useLanguage();
 
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>("stare-miasto");
@@ -129,7 +129,7 @@ export default function NowScreen() {
 
   const handleLogOffer = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate("Main", { screen: "Offers" });
+    navigation.navigate("OffersTab");
   };
 
   const now = new Date();
@@ -187,8 +187,8 @@ export default function NowScreen() {
               </ThemedText>
             </View>
             <View style={styles.contextBadges}>
-              <View style={[styles.contextBadge, bucket.dayType === "WEEKEND" && styles.contextBadgeActive]}>
-                <ThemedText type="caption" style={[styles.contextBadgeText, bucket.dayType === "WEEKEND" && styles.contextBadgeTextActive]}>
+              <View style={[styles.contextBadge, bucket.dayType === "weekend" && styles.contextBadgeActive]}>
+                <ThemedText type="caption" style={[styles.contextBadgeText, bucket.dayType === "weekend" && styles.contextBadgeTextActive]}>
                   {getDayModeLabelTranslated(bucket.dayType, language)}
                 </ThemedText>
               </View>

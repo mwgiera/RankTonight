@@ -123,7 +123,7 @@ export function useShiftSession() {
             newZoneState.currentZoneId
           );
           currentDwellRef.current = newDwell;
-          dwellStartMsRef.current = newDwell.startMs;
+          dwellStartMsRef.current = newDwell?.startMs ?? null;
 
           setState((prev) => ({
             ...prev,
