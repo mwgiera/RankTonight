@@ -4,8 +4,8 @@ import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet } from "react-native";
 import NowStackNavigator from "@/navigation/NowStackNavigator";
+import OffersStackNavigator from "@/navigation/OffersStackNavigator";
 import ZonesStackNavigator from "@/navigation/ZonesStackNavigator";
-import LogStackNavigator from "@/navigation/LogStackNavigator";
 import ReceiptsStackNavigator from "@/navigation/ReceiptsStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
@@ -14,8 +14,8 @@ import { useLanguage } from "@/lib/language-context";
 
 export type MainTabParamList = {
   NowTab: undefined;
+  OffersTab: undefined;
   ZonesTab: undefined;
-  LogTab: undefined;
   ReceiptsTab: undefined;
   ProfileTab: undefined;
 };
@@ -63,22 +63,22 @@ export default function MainTabNavigator() {
         }}
       />
       <Tab.Screen
+        name="OffersTab"
+        component={OffersStackNavigator}
+        options={{
+          title: t.tabs.log,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="edit-3" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="ZonesTab"
         component={ZonesStackNavigator}
         options={{
           title: t.tabs.zones,
           tabBarIcon: ({ color, size }) => (
             <Feather name="map" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="LogTab"
-        component={LogStackNavigator}
-        options={{
-          title: t.tabs.log,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="edit-3" size={size} color={color} />
           ),
         }}
       />
