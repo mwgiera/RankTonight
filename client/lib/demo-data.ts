@@ -34,10 +34,8 @@ const KRAKOW_EARNINGS_BENCHMARKS = {
 };
 
 const TIME_MULTIPLIERS: Record<TimeRegime, Record<ZoneCategory, number>> = {
-  "early-morning": { airport: 1.4, center: 0.7, residential: 0.8 },
   "morning-rush": { airport: 1.6, center: 1.4, residential: 1.3 },
   "midday": { airport: 1.1, center: 1.0, residential: 0.9 },
-  "afternoon": { airport: 1.2, center: 1.1, residential: 1.0 },
   "evening-rush": { airport: 1.3, center: 1.5, residential: 1.2 },
   "late-night": { airport: 0.7, center: 1.6, residential: 0.6 },
   "overnight": { airport: 0.5, center: 1.2, residential: 0.4 },
@@ -56,10 +54,8 @@ const PLATFORM_ZONE_AFFINITY: Record<Platform, Record<ZoneCategory, number>> = {
 };
 
 const CONGESTION_BY_TIME: Record<TimeRegime, Record<ZoneCategory, number>> = {
-  "early-morning": { airport: 0.3, center: 0.2, residential: 0.2 },
   "morning-rush": { airport: 0.7, center: 0.8, residential: 0.5 },
   "midday": { airport: 0.4, center: 0.5, residential: 0.3 },
-  "afternoon": { airport: 0.5, center: 0.5, residential: 0.4 },
   "evening-rush": { airport: 0.6, center: 0.9, residential: 0.5 },
   "late-night": { airport: 0.2, center: 0.4, residential: 0.2 },
   "overnight": { airport: 0.1, center: 0.2, residential: 0.1 },
@@ -76,8 +72,7 @@ export function generateDemoDataset(): DemoEarningsRecord[] {
   const zones: ZoneCategory[] = ["airport", "center", "residential"];
   const dayModes: DayMode[] = ["WEEKDAY", "WEEKEND"];
   const timeRegimes: TimeRegime[] = [
-    "early-morning", "morning-rush", "midday", "afternoon",
-    "evening-rush", "late-night", "overnight"
+    "morning-rush", "midday", "evening-rush", "late-night", "overnight"
   ];
 
   for (const platform of platforms) {
