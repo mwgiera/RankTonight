@@ -8,7 +8,6 @@ import type {
   PlatformScore,
   ContextMode,
   EarningsLog,
-  getConfidenceLevel,
 } from "./ranking-model";
 import { getContextMode, getAllPlatforms, ZONES, calculateRankings, getConfidenceFromSampleCount, SCORING_DEFAULTS } from "./ranking-model";
 

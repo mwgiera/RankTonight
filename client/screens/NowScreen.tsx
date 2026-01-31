@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { View, StyleSheet, ScrollView, RefreshControl, Pressable, Platform as RNPlatform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -8,36 +8,21 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
-import Animated, {
-  FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-  Easing,
-} from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
-import { ConfidenceBar } from "@/components/ConfidenceBar";
-import { ScoreBreakdown } from "@/components/ScoreBreakdown";
-import { PlatformCard } from "@/components/PlatformCard";
+import { ThemedView } from "@/components/ThemedView";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { MoneyProofCard } from "@/components/MoneyProofCard";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing, Colors } from "@/constants/theme";
-import {
-  getPlatformDisplayName,
-  getPlatformColor,
-  getZoneById,
-  ZONES,
-  findNearestZone,
-  type PlatformScore,
-} from "@/lib/ranking-model";
-import { getSelectedZone, setSelectedZone, getEarningsLogs, getScoringMode, getUserPreferences } from "@/lib/storage";
+import { ZONES, findNearestZone } from "@/lib/ranking-model";
+import { getSelectedZone, setSelectedZone, getUserPreferences } from "@/lib/storage";
 import { getMoneyProofCounters, type MoneyProofCounters } from "@/lib/database";
 import { getApiUrl } from "@/lib/query-client";
-import { calculateDualRanking, type DualRankingResult, type ScoringMode } from "@/lib/dual-scorer";
+import { getIdleRecommendation, type Recommendation, formatRecommendationForDisplay } from "@/lib/scorer";
+import { getBucket } from "@/lib/time-buckets";
+import { getZoneById } from "@/lib/zones";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useLanguage } from "@/lib/language-context";
 import { getTimeRegimeLabelTranslated, getDayModeLabelTranslated } from "@/lib/translations";
@@ -50,15 +35,13 @@ export default function NowScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { language, t } = useLanguage();
 
-  const [selectedZoneId, setSelectedZoneId] = useState("stare-miasto");
-  const [ranking, setRanking] = useState<DualRankingResult | null>(null);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>("stare-miasto");
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showZonePicker, setShowZonePicker] = useState(false);
-  const [scoringMode, setScoringModeState] = useState<ScoringMode>("PILOT");
-  const [locationPermission, setLocationPermission] = useState<boolean | null>(null);
+  const [dwellMinutes, setDwellMinutes] = useState(0);
   const [moneyProof, setMoneyProof] = useState<MoneyProofCounters | null>(null);
-
-  const pulseScale = useSharedValue(1);
+  const [locationEnabled, setLocationEnabled] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,13 +63,12 @@ export default function NowScreen() {
   const detectLocationZone = async () => {
     if (RNPlatform.OS === "web") return;
     
-    // Check opt-in first
     const currentPrefs = await getUserPreferences();
     if (!currentPrefs.dataSharingEnabled) return;
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      setLocationPermission(status === "granted");
+      setLocationEnabled(status === "granted");
       
       if (status === "granted") {
         const location = await Location.getCurrentPositionAsync({
@@ -104,7 +86,6 @@ export default function NowScreen() {
           await setSelectedZone(nearestZone.id);
         }
 
-        // Anonymized zone sharing (only if opted-in)
         const apiUrl = getApiUrl();
         await fetch(new URL("/api/location", apiUrl).toString(), {
           method: "POST",
@@ -120,44 +101,12 @@ export default function NowScreen() {
     }
   };
 
-  useEffect(() => {
-    calculateAndSetRanking();
-  }, [selectedZoneId, scoringMode]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      calculateAndSetRanking();
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [selectedZoneId, scoringMode]);
-
-  const calculateAndSetRanking = async () => {
-    const zone = getZoneById(selectedZoneId);
-    if (zone) {
-      const logs = await getEarningsLogs();
-      const result = calculateDualRanking(scoringMode, logs, selectedZoneId, zone.category);
-      setRanking(result);
-
-      if (result.confidence === "Strong") {
-        pulseScale.value = withRepeat(
-          withSequence(
-            withTiming(1.02, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-            withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-          ),
-          -1,
-          true
-        );
-      } else {
-        pulseScale.value = 1;
-      }
-    }
-  };
-
   const loadData = async () => {
     const zoneId = await getSelectedZone();
-    const mode = await getScoringMode();
     setSelectedZoneId(zoneId);
-    setScoringModeState(mode);
+    
+    const rec = await getIdleRecommendation(zoneId, dwellMinutes);
+    setRecommendation(rec);
   };
 
   const onRefresh = useCallback(async () => {
@@ -166,45 +115,53 @@ export default function NowScreen() {
     await loadData();
     await loadMoneyProof();
     setRefreshing(false);
-  }, []);
+  }, [dwellMinutes]);
 
   const handleZoneSelect = async (zoneId: string) => {
     setSelectedZoneId(zoneId);
     await setSelectedZone(zoneId);
     setShowZonePicker(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    const rec = await getIdleRecommendation(zoneId, dwellMinutes);
+    setRecommendation(rec);
   };
 
-  const handleLogEarnings = () => {
+  const handleLogOffer = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate("LogEarnings");
+    navigation.navigate("Main", { screen: "Offers" });
   };
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
-  }));
 
   const now = new Date();
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
-  const dayStr = dayNames[now.getDay()];
-  const zone = getZoneById(selectedZoneId);
-  const context = ranking?.context;
+  const bucket = getBucket(Date.now());
+  const zone = selectedZoneId ? getZoneById(selectedZoneId) : null;
 
-  if (!ranking) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-        <ThemedText>Loading...</ThemedText>
-      </View>
-    );
-  }
+  const getActionColor = (action: string) => {
+    switch (action) {
+      case "WAIT": return Colors.dark.primary;
+      case "MOVE": return Colors.dark.warning;
+      case "COLLECT": return Colors.dark.warning;
+      case "TAKE": return Colors.dark.success;
+      case "DECLINE": return Colors.dark.danger;
+      default: return theme.text;
+    }
+  };
 
-  const topRanking = ranking.rankings[0];
-  const alternativeRankings = ranking.rankings.slice(1);
-  const isWeak = ranking.confidence === "Weak";
+  const getActionIcon = (action: string): keyof typeof Feather.glyphMap => {
+    switch (action) {
+      case "WAIT": return "clock";
+      case "MOVE": return "navigation";
+      case "COLLECT": return "database";
+      case "TAKE": return "check-circle";
+      case "DECLINE": return "x-circle";
+      default: return "help-circle";
+    }
+  };
+
+  const display = recommendation ? formatRecommendationForDisplay(recommendation) : null;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <ThemedView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{
@@ -229,21 +186,19 @@ export default function NowScreen() {
                 {zone?.name || t.now.selectZone}
               </ThemedText>
             </View>
-            {context ? (
-              <View style={styles.contextBadges}>
-                <View style={[styles.contextBadge, context.dayMode === "WEEKEND" && styles.contextBadgeActive]}>
-                  <ThemedText type="caption" style={[styles.contextBadgeText, context.dayMode === "WEEKEND" && styles.contextBadgeTextActive]}>
-                    {getDayModeLabelTranslated(context.dayMode, language)}
-                  </ThemedText>
-                </View>
-                <View style={styles.contextDot} />
-                <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                  {getTimeRegimeLabelTranslated(context.timeRegime, language)}
+            <View style={styles.contextBadges}>
+              <View style={[styles.contextBadge, bucket.dayType === "WEEKEND" && styles.contextBadgeActive]}>
+                <ThemedText type="caption" style={[styles.contextBadgeText, bucket.dayType === "WEEKEND" && styles.contextBadgeTextActive]}>
+                  {getDayModeLabelTranslated(bucket.dayType, language)}
                 </ThemedText>
               </View>
-            ) : null}
+              <View style={styles.contextDot} />
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                {getTimeRegimeLabelTranslated(bucket.timeRegime, language)}
+              </ThemedText>
+            </View>
             <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
-              {dayStr} {timeStr}
+              {now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
             </ThemedText>
           </View>
 
@@ -268,8 +223,6 @@ export default function NowScreen() {
             <View style={[styles.zoneDropdown, { backgroundColor: theme.backgroundDefault }]}>
               {ZONES.map((z) => {
                 const isSelected = z.id === selectedZoneId;
-                const isLateNightBias = z.behaviorBias === "late-night bias";
-                const isActiveNow = context?.timeRegime === "late-night" && isLateNightBias;
                 return (
                   <Pressable
                     key={z.id}
@@ -279,21 +232,16 @@ export default function NowScreen() {
                     ]}
                     onPress={() => handleZoneSelect(z.id)}
                   >
-                    <View style={styles.zoneOptionLeft}>
-                      {isActiveNow ? (
-                        <Feather name="moon" size={12} color={Colors.dark.primary} style={{ marginRight: Spacing.xs }} />
-                      ) : null}
-                      <ThemedText
-                        type="body"
-                        style={{
-                          color: isSelected ? Colors.dark.primary : theme.text,
-                          fontWeight: isSelected ? "600" : "400",
-                        }}
-                      >
-                        {z.name}
-                      </ThemedText>
-                    </View>
-                    <ThemedText type="caption" style={{ color: isActiveNow ? Colors.dark.primary : theme.textSecondary }}>
+                    <ThemedText
+                      type="body"
+                      style={{
+                        color: isSelected ? Colors.dark.primary : theme.text,
+                        fontWeight: isSelected ? "600" : "400",
+                      }}
+                    >
+                      {z.name}
+                    </ThemedText>
+                    <ThemedText type="caption" style={{ color: theme.textSecondary }}>
                       {z.behaviorBias}
                     </ThemedText>
                   </Pressable>
@@ -303,159 +251,104 @@ export default function NowScreen() {
           ) : null}
         </Animated.View>
 
-        {isWeak ? (
+        {recommendation && display ? (
           <Animated.View
-            entering={FadeInDown.delay(100).duration(500)}
+            entering={FadeInDown.delay(100).duration(400)}
             style={[
+              styles.recommendationCard,
               { 
                 backgroundColor: theme.backgroundDefault, 
-                padding: Spacing.xl, 
-                borderRadius: BorderRadius.md, 
-                alignItems: "center",
-                marginTop: Spacing.xl 
-              }
+                borderColor: getActionColor(recommendation.action),
+              },
             ]}
           >
-            <Feather name="database" size={40} color={theme.textTertiary} style={{ marginBottom: Spacing.md }} />
-            <ThemedText type="h2" style={{ textAlign: "center", marginBottom: Spacing.xs }}>
-              Insufficient Data
+            <View style={styles.actionRow}>
+              <View style={[styles.actionIconCircle, { backgroundColor: getActionColor(recommendation.action) + "20" }]}>
+                <Feather name={getActionIcon(recommendation.action)} size={32} color={getActionColor(recommendation.action)} />
+              </View>
+              <View style={styles.actionContent}>
+                <ThemedText type="hero" style={{ color: getActionColor(recommendation.action) }}>
+                  {display.primaryAction}
+                </ThemedText>
+                <View style={[
+                  styles.confidenceBadge,
+                  recommendation.confidence === "STRONG" && { backgroundColor: Colors.dark.success + "30" },
+                  recommendation.confidence === "MEDIUM" && { backgroundColor: Colors.dark.warning + "30" },
+                  recommendation.confidence === "WEAK" && { backgroundColor: Colors.dark.danger + "30" },
+                ]}>
+                  <ThemedText type="small" style={{ 
+                    color: recommendation.confidence === "STRONG" ? Colors.dark.success 
+                         : recommendation.confidence === "MEDIUM" ? Colors.dark.warning 
+                         : Colors.dark.danger,
+                    fontWeight: "500",
+                  }}>
+                    {display.confidenceLabel}
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            <ThemedText style={{ color: theme.textSecondary, lineHeight: 22 }}>
+              {display.secondaryText}
             </ThemedText>
-            <ThemedText type="body" style={{ textAlign: "center", color: theme.textSecondary }}>
-              We need more logs for this zone and time to give a confident recommendation. Keep driving and log your earnings!
-            </ThemedText>
+
+            {recommendation.mode === "GUIDE" && (
+              <View style={styles.guideDetails}>
+                <View style={styles.guideRow}>
+                  <Feather name="clock" size={16} color={theme.textSecondary} />
+                  <ThemedText type="body" style={{ marginLeft: Spacing.sm }}>
+                    Wait up to {recommendation.stayUntilMin} min
+                  </ThemedText>
+                </View>
+                <View style={styles.guideRow}>
+                  <Feather name="alert-circle" size={16} color={Colors.dark.warning} />
+                  <ThemedText type="body" style={{ marginLeft: Spacing.sm, color: Colors.dark.warning }}>
+                    Leave after {recommendation.leaveIfMin} min
+                  </ThemedText>
+                </View>
+                {recommendation.suggestedZone ? (
+                  <View style={styles.guideRow}>
+                    <Feather name="arrow-right" size={16} color={Colors.dark.primary} />
+                    <ThemedText type="body" style={{ marginLeft: Spacing.sm, color: Colors.dark.primary }}>
+                      Consider: {recommendation.suggestedZone}
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {recommendation.mode === "COLLECT" && (
+              <View style={[styles.collectPrompt, { backgroundColor: Colors.dark.warning + "15" }]}>
+                <Feather name="plus-circle" size={20} color={Colors.dark.warning} />
+                <ThemedText style={{ marginLeft: Spacing.sm, flex: 1, color: theme.text }}>
+                  Log {recommendation.neededSamples} more trips to unlock personalized advice
+                </ThemedText>
+              </View>
+            )}
+
             <Pressable
-              onPress={handleLogEarnings}
-              style={[
-                { 
-                  backgroundColor: Colors.dark.primary, 
-                  paddingHorizontal: Spacing.xl, 
-                  paddingVertical: Spacing.md, 
-                  borderRadius: BorderRadius.sm,
-                  marginTop: Spacing.xl 
-                }
-              ]}
+              style={[styles.logOfferButton, { backgroundColor: Colors.dark.primary }]}
+              onPress={handleLogOffer}
             >
-              <ThemedText style={{ color: "#FFF", fontWeight: "600" }}>Log First Trip</ThemedText>
+              <Feather name="plus" size={18} color="#FFF" />
+              <ThemedText style={{ color: "#FFF", fontWeight: "600", marginLeft: Spacing.sm }}>
+                Got an Offer? Log It
+              </ThemedText>
             </Pressable>
           </Animated.View>
         ) : (
-          <>
-            <Animated.View
-              entering={FadeInDown.delay(100).duration(400)}
-              style={[
-                styles.recommendationCard,
-                { backgroundColor: theme.backgroundDefault, borderColor: Colors.dark.primary },
-                pulseStyle,
-              ]}
-            >
-              <View style={[styles.modeIndicator, { backgroundColor: ranking.mode === "PERSONAL" ? Colors.dark.success + "20" : Colors.dark.primary + "20" }]}>
-                <Feather 
-                  name={ranking.mode === "PERSONAL" ? "user" : "activity"} 
-                  size={12} 
-                  color={ranking.mode === "PERSONAL" ? Colors.dark.success : Colors.dark.primary} 
-                />
-                <ThemedText type="caption" style={{ 
-                  color: ranking.mode === "PERSONAL" ? Colors.dark.success : Colors.dark.primary,
-                  marginLeft: Spacing.xs,
-                  fontWeight: "500",
-                }}>
-                  {ranking.mode === "PERSONAL" ? t.now.profitability : t.now.opportunityScore}
-                </ThemedText>
-                {ranking.mode === "PILOT" && ranking.currentRecordCount > 0 ? (
-                  <ThemedText type="caption" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
-                    ({ranking.currentRecordCount}/{ranking.minRecordsRequired} {t.now.needMoreRecords.split(" ")[0]})
-                  </ThemedText>
-                ) : null}
-              </View>
-
-              <View style={styles.contextConfidenceRow}>
-                <View style={styles.contextSummary}>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    {t.now.basedOn.toUpperCase()}
-                  </ThemedText>
-                  <ThemedText type="caption" style={{ color: theme.text, marginTop: 2 }}>
-                    {zone?.name}
-                  </ThemedText>
-                  {context ? (
-                    <>
-                      <ThemedText type="caption" style={{ color: context.dayMode === "WEEKEND" ? Colors.dark.primary : theme.textSecondary }}>
-                        {getDayModeLabelTranslated(context.dayMode, language)}
-                      </ThemedText>
-                      <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                        {getTimeRegimeLabelTranslated(context.timeRegime, language)}
-                      </ThemedText>
-                    </>
-                  ) : null}
-                </View>
-                <View style={styles.confidenceSummary}>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    {t.now.confidence.toUpperCase()}
-                  </ThemedText>
-                  <View style={[styles.confidenceBadge, 
-                    ranking.confidence === "Strong" && { backgroundColor: Colors.dark.success + "30" },
-                    ranking.confidence === "Medium" && { backgroundColor: Colors.dark.warning + "30" },
-                    ranking.confidence === "Weak" && { backgroundColor: Colors.dark.danger + "30" },
-                  ]}>
-                    <ThemedText type="body" style={[
-                      { fontWeight: "600" },
-                      ranking.confidence === "Strong" && { color: Colors.dark.success },
-                      ranking.confidence === "Medium" && { color: Colors.dark.warning },
-                      ranking.confidence === "Weak" && { color: Colors.dark.danger },
-                    ]}>
-                      {ranking.confidence === "Strong" ? t.now.strong : ranking.confidence === "Medium" ? t.now.medium : t.now.weak}
-                    </ThemedText>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.cardHeader}>
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  {t.now.topPick}
-                </ThemedText>
-              </View>
-              <View style={styles.platformRow}>
-                <View
-                  style={[
-                    styles.platformColorBar,
-                    { backgroundColor: getPlatformColor(topRanking!.platform) },
-                  ]}
-                />
-                <ThemedText type="hero" style={styles.platformName}>
-                  {getPlatformDisplayName(topRanking!.platform)}
-                </ThemedText>
-              </View>
-              <ConfidenceBar value={ranking.confidenceValue} level={ranking.confidence} />
-              <ScoreBreakdown
-                demand={topRanking!.demandScore}
-                friction={topRanking!.frictionScore}
-                incentive={topRanking!.incentiveScore}
-                reliability={topRanking!.reliabilityScore}
-              />
-            </Animated.View>
-
-            <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-              <ThemedText
-                type="h2"
-                style={{ marginTop: Spacing["2xl"], marginBottom: Spacing.md }}
-              >
-                {t.now.alternativeOptions}
-              </ThemedText>
-              {alternativeRankings.map((r, index) => (
-                <PlatformCard
-                  key={r.platform}
-                  platform={r.platform}
-                  probability={r.probability}
-                  rank={index + 2}
-                />
-              ))}
-            </Animated.View>
-          </>
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(400)}
+            style={[styles.loadingCard, { backgroundColor: theme.backgroundDefault }]}
+          >
+            <ThemedText style={{ color: theme.textSecondary }}>Loading recommendation...</ThemedText>
+          </Animated.View>
         )}
 
-        {moneyProof ? (
-          <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+        {moneyProof && (moneyProof.baselineCount > 0 || moneyProof.followedCount > 0) ? (
+          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
             <MoneyProofCard
               baselineHourly={moneyProof.baselineHourly}
               followedHourly={moneyProof.followedHourly}
@@ -468,10 +361,10 @@ export default function NowScreen() {
 
       <FloatingActionButton
         icon="plus"
-        onPress={handleLogEarnings}
+        onPress={handleLogOffer}
         bottom={tabBarHeight + Spacing.lg}
       />
-    </View>
+    </ThemedView>
   );
 }
 
@@ -497,20 +390,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginTop: Spacing.sm,
-    flexWrap: "wrap",
-    gap: Spacing.xs,
   },
   contextBadge: {
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.xs,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
     backgroundColor: "rgba(255,255,255,0.1)",
   },
   contextBadgeActive: {
     backgroundColor: Colors.dark.primary + "30",
   },
   contextBadgeText: {
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.7)",
   },
   contextBadgeTextActive: {
     color: Colors.dark.primary,
@@ -520,52 +411,59 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: "rgba(255,255,255,0.3)",
+    marginHorizontal: Spacing.sm,
   },
   zonePicker: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
   },
   zonePickerContent: {
     flexDirection: "row",
     alignItems: "center",
   },
   zoneDropdown: {
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.md,
     overflow: "hidden",
+    marginBottom: Spacing.md,
   },
   zoneOption: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: Spacing.md,
-  },
-  zoneOptionLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
   },
   recommendationCard: {
     padding: Spacing.xl,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     borderWidth: 2,
+    marginTop: Spacing.lg,
   },
-  contextConfidenceRow: {
+  actionRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: Spacing.md,
+    alignItems: "center",
   },
-  contextSummary: {
+  actionIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.lg,
+  },
+  actionContent: {
     flex: 1,
   },
-  confidenceSummary: {
-    alignItems: "flex-end",
-  },
   confidenceBadge: {
-    paddingHorizontal: Spacing.md,
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
     marginTop: Spacing.xs,
@@ -573,28 +471,35 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: "rgba(255,255,255,0.1)",
-    marginVertical: Spacing.md,
+    marginVertical: Spacing.lg,
   },
-  cardHeader: {
-    marginBottom: Spacing.sm,
+  guideDetails: {
+    marginTop: Spacing.lg,
+    gap: Spacing.md,
   },
-  platformRow: {
+  guideRow: {
     flexDirection: "row",
     alignItems: "center",
   },
-  platformColorBar: {
-    width: 6,
-    height: 48,
-    borderRadius: 3,
-    marginRight: Spacing.md,
-  },
-  platformName: {},
-  modeIndicator: {
+  collectPrompt: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.lg,
+  },
+  logOfferButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.xl,
+  },
+  loadingCard: {
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    marginTop: Spacing.lg,
   },
 });

@@ -1,15 +1,33 @@
 import * as SQLite from "expo-sqlite";
+import { Platform as RNPlatform } from "react-native";
 import { nowMs, getBucket, type TimeRegime, type DayType } from "./time-buckets";
 import type { Platform } from "./ranking-model";
 
 let db: SQLite.SQLiteDatabase | null = null;
+let dbInitFailed = false;
 
-export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
+function isWebPlatform(): boolean {
+  return RNPlatform.OS === "web";
+}
+
+export async function getDatabase(): Promise<SQLite.SQLiteDatabase | null> {
+  if (isWebPlatform()) {
+    console.log("SQLite not available on web platform");
+    return null;
+  }
+  if (dbInitFailed) return null;
   if (db) return db;
-  db = await SQLite.openDatabaseAsync("driveradar.db");
-  await db.execAsync("PRAGMA foreign_keys = ON;");
-  await initSchema(db);
-  return db;
+  
+  try {
+    db = await SQLite.openDatabaseAsync("driveradar.db");
+    await db.execAsync("PRAGMA foreign_keys = ON;");
+    await initSchema(db);
+    return db;
+  } catch (error) {
+    console.error("Failed to initialize SQLite database:", error);
+    dbInitFailed = true;
+    return null;
+  }
 }
 
 async function initSchema(database: SQLite.SQLiteDatabase): Promise<void> {
@@ -105,8 +123,10 @@ export interface Offer {
   actualDurationMin: number | null;
 }
 
-export async function startSession(): Promise<Session> {
+export async function startSession(): Promise<Session | null> {
   const database = await getDatabase();
+  if (!database) return null;
+  
   const existingActive = await database.getFirstAsync<Session>(
     "SELECT * FROM sessions WHERE status = 'active' LIMIT 1"
   );
@@ -129,6 +149,8 @@ export async function startSession(): Promise<Session> {
 
 export async function stopSession(sessionId: number): Promise<void> {
   const database = await getDatabase();
+  if (!database) return;
+  
   const ts = nowMs();
   await database.runAsync(
     "UPDATE sessions SET endMs = ?, status = 'completed' WHERE id = ?",
@@ -142,13 +164,17 @@ export async function stopSession(sessionId: number): Promise<void> {
 
 export async function getActiveSession(): Promise<Session | null> {
   const database = await getDatabase();
+  if (!database) return null;
+  
   return database.getFirstAsync<Session>(
     "SELECT * FROM sessions WHERE status = 'active' LIMIT 1"
   );
 }
 
-export async function openDwell(sessionId: number, zoneId: string): Promise<ZoneDwell> {
+export async function openDwell(sessionId: number, zoneId: string): Promise<ZoneDwell | null> {
   const database = await getDatabase();
+  if (!database) return null;
+  
   const ts = nowMs();
   const bucket = getBucket(ts);
   
@@ -171,6 +197,8 @@ export async function openDwell(sessionId: number, zoneId: string): Promise<Zone
 
 export async function closeDwell(dwellId: number, distanceEstKm: number = 0): Promise<void> {
   const database = await getDatabase();
+  if (!database) return;
+  
   const ts = nowMs();
   await database.runAsync(
     "UPDATE zone_dwells SET endMs = ?, distanceEstKm = ? WHERE id = ?",
@@ -180,6 +208,8 @@ export async function closeDwell(dwellId: number, distanceEstKm: number = 0): Pr
 
 export async function getOpenDwell(sessionId: number): Promise<ZoneDwell | null> {
   const database = await getDatabase();
+  if (!database) return null;
+  
   return database.getFirstAsync<ZoneDwell>(
     "SELECT * FROM zone_dwells WHERE sessionId = ? AND endMs IS NULL ORDER BY startMs DESC LIMIT 1",
     [sessionId]
@@ -188,6 +218,8 @@ export async function getOpenDwell(sessionId: number): Promise<ZoneDwell | null>
 
 export async function getDwellsForSession(sessionId: number): Promise<ZoneDwell[]> {
   const database = await getDatabase();
+  if (!database) return [];
+  
   return database.getAllAsync<ZoneDwell>(
     "SELECT * FROM zone_dwells WHERE sessionId = ? ORDER BY startMs",
     [sessionId]
@@ -214,6 +246,31 @@ export async function saveOffer(input: OfferInput, sessionId?: number): Promise<
   const database = await getDatabase();
   const ts = nowMs();
   const bucket = getBucket(ts);
+  
+  if (!database) {
+    return {
+      id: Date.now(),
+      sessionId: sessionId ?? null,
+      platform: input.platform,
+      pickupZone: input.pickupZone,
+      destZone: input.destZone,
+      fare: input.fare,
+      etaMinutes: input.etaMinutes,
+      distanceKm: input.distanceKm ?? null,
+      surgeFlag: input.surgeFlag ?? false,
+      note: input.note ?? null,
+      createdAtMs: ts,
+      timeRegime: bucket.timeRegime,
+      dayType: bucket.dayType,
+      recommendationAction: input.recommendation?.action ?? null,
+      recommendationConfidence: input.recommendation?.confidence ?? null,
+      modelVersion: "v1",
+      scoreComponents: input.recommendation?.scoreComponents ? JSON.stringify(input.recommendation.scoreComponents) : null,
+      feedback: null,
+      actualFare: null,
+      actualDurationMin: null,
+    };
+  }
   
   const result = await database.runAsync(
     `INSERT INTO offers (
@@ -272,6 +329,8 @@ export async function recordFeedback(
   actualDurationMin?: number
 ): Promise<void> {
   const database = await getDatabase();
+  if (!database) return;
+  
   await database.runAsync(
     "UPDATE offers SET feedback = ?, actualFare = ?, actualDurationMin = ? WHERE id = ?",
     [feedback, actualFare ?? null, actualDurationMin ?? null, offerId]
@@ -280,6 +339,8 @@ export async function recordFeedback(
 
 export async function getRecentOffers(limit: number = 50): Promise<Offer[]> {
   const database = await getDatabase();
+  if (!database) return [];
+  
   return database.getAllAsync<Offer>(
     "SELECT * FROM offers ORDER BY createdAtMs DESC LIMIT ?",
     [limit]
@@ -305,6 +366,10 @@ export async function getStatsForBucket(
   platform: Platform
 ): Promise<BucketStats | null> {
   const database = await getDatabase();
+  if (!database) {
+    console.log("getStatsForBucket: database not available");
+    return null;
+  }
   const thirtyDaysAgoMs = nowMs() - 30 * 24 * 60 * 60 * 1000;
   
   const result = await database.getFirstAsync<{
@@ -351,6 +416,10 @@ export interface MoneyProofCounters {
 
 export async function getMoneyProofCounters(): Promise<MoneyProofCounters> {
   const database = await getDatabase();
+  if (!database) {
+    return { baselineHourly: 0, followedHourly: 0, baselineCount: 0, followedCount: 0 };
+  }
+  
   const twoHoursAgoMs = nowMs() - 2 * 60 * 60 * 1000;
   
   const baseline = await database.getFirstAsync<{ count: number; total: number; minutes: number }>(
@@ -391,6 +460,8 @@ export async function getMoneyProofCounters(): Promise<MoneyProofCounters> {
 
 export async function deleteAllData(): Promise<void> {
   const database = await getDatabase();
+  if (!database) return;
+  
   await database.execAsync(`
     DELETE FROM zone_dwells;
     DELETE FROM offers;
@@ -400,6 +471,8 @@ export async function deleteAllData(): Promise<void> {
 
 export async function exportAllDataAsCsv(): Promise<string> {
   const database = await getDatabase();
+  if (!database) return "No data available (web platform)";
+  
   const offers = await database.getAllAsync<Offer>("SELECT * FROM offers ORDER BY createdAtMs");
   
   const headers = [
