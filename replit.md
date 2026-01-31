@@ -89,10 +89,18 @@ Personal Score = Time-Decayed Avg Rev/Hour (or Earnings/Trip if duration missing
 - **Storage**: In-memory storage by default (`server/storage.ts`), with Drizzle ORM schema ready for PostgreSQL
 
 ### Data Layer
-- **Client Storage**: AsyncStorage for earnings logs, selected zone, user preferences, scoring mode, and parsed receipts
+- **Client Storage**: 
+  - AsyncStorage: earnings logs, selected zone, user preferences, scoring mode, and parsed receipts
+  - SQLite (native only): offers table, sessions table, zone_dwells table for personal scoring
 - **Server Storage**: PostgreSQL database with Drizzle ORM for admin location tracking
 - **Schema**: Drizzle ORM with PostgreSQL dialect (`shared/schema.ts`)
-- **CSV Export**: Full trip history can be exported as CSV via the Receipts tab
+- **CSV Export**: Full trip history can be exported via Profile > Data & Privacy > Export Your Data
+
+### Privacy Features
+- **Export Data**: CSV export of all offer history (Profile > Data & Privacy)
+- **Delete Data**: Clear all AsyncStorage and SQLite data (Profile > Clear All Data)
+- **Anonymous Location Sharing**: Optional toggle to share zone anonymously for model improvement
+- **Web Platform**: SQLite not available on web; app gracefully falls back to COLLECT DATA mode
 
 ### Build System
 - Development: Expo dev server with Metro bundler
